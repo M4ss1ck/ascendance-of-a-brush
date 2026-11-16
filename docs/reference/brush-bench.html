@@ -1,0 +1,740 @@
+<title>Brush Bench</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+/* Layout: studio bench. Control rail on the left, 2x2 easel grid of brush panels on the right. */
+:root {
+  --bg: #e8eaee;
+  --surface: #f7f8fa;
+  --ink: #1a1e25;
+  --muted: #5b6370;
+  --line: #cdd2da;
+  --accent: #2b46c4;
+  --accent-ink: #ffffff;
+  --good: #23804a;
+  --bad: #c2372b;
+  --frame: #2a2d33;
+  --f-display: "Space Grotesk", system-ui, sans-serif;
+  --f-body: "Inter", system-ui, -apple-system, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #131519; --surface: #1c1f25; --ink: #e3e6eb; --muted: #98a0ad; --line: #2d323a;
+    --accent: #8a9cff; --accent-ink: #0d1020; --good: #5fcf8a; --bad: #ff7a6b; --frame: #0b0c0f; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #131519; --surface: #1c1f25; --ink: #e3e6eb; --muted: #98a0ad; --line: #2d323a;
+  --accent: #8a9cff; --accent-ink: #0d1020; --good: #5fcf8a; --bad: #ff7a6b; --frame: #0b0c0f; color-scheme: dark;
+}
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 14px; line-height: 1.5; }
+.wrap {
+  max-width: 1520px; margin: 0 auto;
+  padding-block: 22px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; grid-template-columns: 292px minmax(0, 1fr); gap: 24px; align-items: start;
+}
+header { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; }
+h1 { font-family: var(--f-display); font-weight: 700; font-size: 28px; letter-spacing: -0.02em; margin: 0; }
+header p { margin: 0; color: var(--muted); max-width: 75ch; }
+.rail { display: flex; flex-direction: column; gap: 18px; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); }
+.source { display: flex; flex-direction: column; gap: 8px; }
+.source canvas { width: 100%; height: auto; display: block; border-radius: 4px; background: var(--frame); }
+.source .name { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.btn {
+  font: 500 13px var(--f-body); border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  padding: 7px 12px; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+}
+.btn:hover { border-color: var(--accent); }
+.btn:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn:disabled { opacity: 0.5; cursor: default; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; }
+.row > * { flex: 1 1 auto; }
+.upload input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.controls { display: flex; flex-direction: column; gap: 12px; }
+.group { font: 600 11px var(--f-body); text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink); border-top: 1px solid var(--line); padding-top: 10px; margin-top: 2px; }
+.ctl { display: flex; flex-direction: column; gap: 4px; }
+.ctl .top { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; }
+.ctl .top label { font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-size: 11px; }
+.ctl output { font-family: var(--f-mono); font-variant-numeric: tabular-nums; font-size: 12px; }
+.ctl input[type=range] { width: 100%; accent-color: var(--accent); }
+.ctl select, .ctl input[type=number] {
+  font: 13px var(--f-body); background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; width: 100%;
+}
+.ctl.check { flex-direction: row; align-items: center; gap: 8px; font-size: 13px; }
+.ctl.check input { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; }
+.seedrow { display: flex; gap: 8px; }
+.seedrow input { flex: 1; min-width: 0; font-family: var(--f-mono) !important; }
+.hint { font-size: 12px; color: var(--muted); margin: 0; }
+.sub { font-family: var(--f-mono); font-size: 12px; color: var(--muted); }
+.panels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.panel { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.panel.big { grid-column: 1 / -1; }
+.panel .head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.panel h2 { font-family: var(--f-display); font-size: 18px; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+.panel .desc { margin: 2px 0 0; color: var(--muted); font-size: 13px; max-width: 62ch; }
+.stage { position: relative; background: var(--frame); border-radius: 4px; padding: 10px; touch-action: none; cursor: crosshair; user-select: none; }
+.stage canvas { display: block; width: 100%; height: auto; }
+.stage .overlay { position: absolute; inset: 10px; width: calc(100% - 20px); height: calc(100% - 20px); }
+.stage .tag { position: absolute; left: 18px; top: 18px; font: 500 11px var(--f-mono); background: rgba(0,0,0,.65); color: #fff; padding: 2px 6px; border-radius: 3px; letter-spacing: .04em; }
+.stats { font-family: var(--f-mono); font-variant-numeric: tabular-nums; font-size: 12px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 14px; min-height: 18px; }
+.stats .metric { color: var(--ink); }
+.stats .best { color: var(--good); font-weight: 500; }
+.stats .best::after { content: " best"; font-size: 10px; letter-spacing: .05em; text-transform: uppercase; }
+.stats .ok { color: var(--good); }
+.stats .bad { color: var(--bad); }
+.legend { display: flex; align-items: center; gap: 8px; font: 11px var(--f-mono); color: var(--muted); }
+.legend i { flex: 1; height: 8px; border-radius: 2px; background: linear-gradient(90deg, #0a0a14, #5a1e82, #e65a32, #ffe678); }
+.notes { grid-column: 1 / -1; border-top: 1px solid var(--line); padding-top: 16px; color: var(--muted); font-size: 13px; max-width: 92ch; display: flex; flex-direction: column; gap: 14px; }
+.notes h3 { font-family: var(--f-display); color: var(--ink); font-size: 15px; margin: 0 0 6px; }
+.notes ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+.drop { outline: 3px dashed var(--accent); outline-offset: -8px; }
+@media (max-width: 880px) {
+  .wrap { grid-template-columns: minmax(0, 1fr); }
+  .rail { position: static; }
+}
+@media (max-width: 640px) {
+  .panels { grid-template-columns: minmax(0, 1fr); }
+}
+</style>
+
+<div class="wrap" id="wrap">
+  <header>
+    <h1>Brush Bench</h1>
+    <p>The two brushes the painter will offer: round dabs and edge-aware curved strokes, on the same coarse-to-fine planner. Error numbers measure how far each painting drifts from the source (lower is closer).</p>
+  </header>
+
+  <aside class="rail">
+    <div class="source">
+      <canvas id="srcView" width="292" height="219" aria-label="Source image"></canvas>
+      <div class="name" id="srcName">Sample scene (generated in the page)</div>
+      <div class="row">
+        <label class="btn upload" for="file">Upload image<input type="file" id="file" accept="image/*"></label>
+        <button class="btn" id="sampleBtn" type="button">Sample</button>
+      </div>
+      <p class="hint">Or drop an image anywhere. Hold a painting to compare it with the source.</p>
+    </div>
+    <div class="controls" id="controls"></div>
+    <div class="legend" id="legend" hidden><span>0</span><i></i><span>90+</span></div>
+    <div class="row">
+      <button class="btn primary" id="replayBtn" type="button" disabled>Replay strokes</button>
+    </div>
+  </aside>
+
+  <main class="panels" id="panels"></main>
+
+  <section class="notes">
+    <div>
+      <h3>How the painting is planned</h3>
+      <ul>
+        <li>Each layer halves the brush, blurs the source to that brush size (Gaussian, sigma = half the brush radius) and places a stroke only in grid cells whose average color error is above the threshold, at the worst pixel in the cell. The first layer always covers everything.</li>
+        <li><b>Edge-aware curve:</b> grows both ways from its start point along the edge flow. Before each half step it checks the source color under the center and at both sides of the brush, and stops if any of them is further than the color tolerance from the start color. It paints the average source color along its path.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Why small features disappeared</h3>
+      <ul>
+        <li>The finest reference was blurred too hard. Three box-blur passes of radius r give sigma = sqrt(r(r+1)), so the old radius of R/2 gave sigma 2.4 for a 3 px brush instead of 1.5, and the lips were gone from the target before any paint went down. Fixed for every panel.</li>
+        <li>Even with the right target, a 3 px brush paints a 4 px wide stroke, and a mouth line at 480 px wide is about 1 px thick and 8 px long. Raising the working size or adding a fifth layer (1.5 px brush) is how these brushes reach small features.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Scores</h3>
+      <ul>
+        <li><b>Line error</b> is the mean color distance on thin lines and small spots (found with a difference of Gaussians on brightness). It measures whether features like lips survive. <b>Edge error</b> covers the 15% of pixels with the strongest gradients. Both are measured against the sharp source. Overall <b>error</b> uses a lightly blurred source so brush texture isn't punished.</li>
+        <li>Replay repaints from the saved stroke list alone and compares pixel hashes. Hashes are stable in one browser; canvas antialiasing differs between engines.</li>
+      </ul>
+    </div>
+  </section>
+</div>
+
+<script>
+"use strict";
+// ---------- deterministic randomness ----------
+function sfc32(a, b, c, d) {
+  return function () {
+    a |= 0; b |= 0; c |= 0; d |= 0;
+    const t = (((a + b) | 0) + d) | 0;
+    d = (d + 1) | 0; a = b ^ (b >>> 9); b = (c + (c << 3)) | 0;
+    c = (c << 21) | (c >>> 11); c = (c + t) | 0;
+    return (t >>> 0) / 4294967296;
+  };
+}
+function rngFrom(seed, salt = 0) {
+  const r = sfc32(0x9e3779b9, seed | 0, salt | 0, 0x85ebca6b ^ (seed | 0));
+  for (let i = 0; i < 15; i++) r();
+  return r;
+}
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const rgb = c => `rgb(${clamp(c[0] | 0, 0, 255)},${clamp(c[1] | 0, 0, 255)},${clamp(c[2] | 0, 0, 255)})`;
+const shade = (c, f) => [c[0] * (1 + f), c[1] * (1 + f), c[2] * (1 + f)];
+const seedOf = rng => (rng() * 4294967296) >>> 0;
+
+function rgb2hsv(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+  let h = 0;
+  if (d) h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return [((h / 6) + 1) % 1, mx ? d / mx : 0, mx];
+}
+function hsv2rgb(h, s, v) {
+  const i = Math.floor(h * 6), f = h * 6 - i, p = v * (1 - s), q = v * (1 - f * s), t = v * (1 - (1 - f) * s);
+  const m = [[v, t, p], [q, v, p], [p, v, t], [p, q, v], [t, p, v], [v, p, q]][i % 6];
+  return [m[0] * 255, m[1] * 255, m[2] * 255];
+}
+
+// ---------- image analysis ----------
+// Three box passes of radius r approximate a Gaussian with sigma = sqrt(r(r+1)).
+function boxBlur(src, W, H, C, r) {
+  if (r < 1) return src.slice();
+  let a = src.slice(), b = new Float32Array(src.length);
+  const norm = 1 / (2 * r + 1);
+  for (let pass = 0; pass < 3; pass++) {
+    for (let y = 0; y < H; y++) {
+      const row = y * W;
+      for (let c = 0; c < C; c++) {
+        let s = 0;
+        for (let k = -r; k <= r; k++) s += a[(row + clamp(k, 0, W - 1)) * C + c];
+        for (let x = 0; x < W; x++) {
+          b[(row + x) * C + c] = s * norm;
+          s += a[(row + Math.min(W - 1, x + r + 1)) * C + c] - a[(row + Math.max(0, x - r)) * C + c];
+        }
+      }
+    }
+    for (let x = 0; x < W; x++) {
+      for (let c = 0; c < C; c++) {
+        let s = 0;
+        for (let k = -r; k <= r; k++) s += b[(clamp(k, 0, H - 1) * W + x) * C + c];
+        for (let y = 0; y < H; y++) {
+          a[(y * W + x) * C + c] = s * norm;
+          s += b[(Math.min(H - 1, y + r + 1) * W + x) * C + c] - b[(Math.max(0, y - r) * W + x) * C + c];
+        }
+      }
+    }
+  }
+  return a;
+}
+const radiusForSigma = sigma => Math.max(0, Math.round((Math.sqrt(1 + 4 * sigma * sigma) - 1) / 2));
+
+function kmeans(src, n, k, rng) {
+  const S = Math.min(4000, n), pts = new Float32Array(S * 3);
+  for (let i = 0; i < S; i++) { const j = (rng() * n) | 0; pts[i * 3] = src[j * 3]; pts[i * 3 + 1] = src[j * 3 + 1]; pts[i * 3 + 2] = src[j * 3 + 2]; }
+  const cen = [];
+  const d2 = (i, c) => (pts[i * 3] - c[0]) ** 2 + (pts[i * 3 + 1] - c[1]) ** 2 + (pts[i * 3 + 2] - c[2]) ** 2;
+  const f = (rng() * S) | 0; cen.push([pts[f * 3], pts[f * 3 + 1], pts[f * 3 + 2]]);
+  const dist = new Float32Array(S);
+  while (cen.length < k) { // k-means++
+    let tot = 0;
+    for (let i = 0; i < S; i++) { let m = Infinity; for (const c of cen) m = Math.min(m, d2(i, c)); dist[i] = m; tot += m; }
+    let t = rng() * tot, i = 0;
+    for (; i < S - 1; i++) { t -= dist[i]; if (t <= 0) break; }
+    cen.push([pts[i * 3], pts[i * 3 + 1], pts[i * 3 + 2]]);
+  }
+  for (let it = 0; it < 10; it++) {
+    const acc = cen.map(() => [0, 0, 0, 0]);
+    for (let i = 0; i < S; i++) {
+      let best = 0, bd = Infinity;
+      for (let c = 0; c < k; c++) { const d = d2(i, cen[c]); if (d < bd) { bd = d; best = c; } }
+      const a = acc[best]; a[0] += pts[i * 3]; a[1] += pts[i * 3 + 1]; a[2] += pts[i * 3 + 2]; a[3]++;
+    }
+    acc.forEach((a, c) => { if (a[3]) cen[c] = [a[0] / a[3], a[1] / a[3], a[2] / a[3]]; });
+  }
+  return cen;
+}
+function nearest(pal, c) {
+  let best = pal[0], bd = Infinity;
+  for (const p of pal) { const d = (p[0] - c[0]) ** 2 + (p[1] - c[1]) ** 2 + (p[2] - c[2]) ** 2; if (d < bd) { bd = d; best = p; } }
+  return best;
+}
+
+function tensor(L, W, H, r) {
+  const at = (x, y) => L[clamp(y, 0, H - 1) * W + clamp(x, 0, W - 1)], N = W * H;
+  const T = new Float32Array(N * 3);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const gx = at(x + 1, y - 1) + 2 * at(x + 1, y) + at(x + 1, y + 1) - at(x - 1, y - 1) - 2 * at(x - 1, y) - at(x - 1, y + 1);
+    const gy = at(x - 1, y + 1) + 2 * at(x, y + 1) + at(x + 1, y + 1) - at(x - 1, y - 1) - 2 * at(x, y - 1) - at(x + 1, y - 1);
+    const i = (y * W + x) * 3; T[i] = gx * gx; T[i + 1] = gx * gy; T[i + 2] = gy * gy;
+  }
+  const Tb = boxBlur(T, W, H, 3, r), theta = new Float32Array(N), strength = new Float32Array(N);
+  for (let i = 0; i < N; i++) {
+    const a = Tb[i * 3], b = Tb[i * 3 + 1], dd = Tb[i * 3 + 2];
+    const l1 = (a + dd) / 2 + Math.sqrt(((a - dd) / 2) ** 2 + b * b);
+    theta[i] = 0.5 * Math.atan2(2 * b, a - dd) + Math.PI / 2; // edge tangent
+    strength[i] = Math.sqrt(Math.max(0, l1));
+  }
+  return { theta, strength };
+}
+
+const LINE_METRIC_T = 12;
+let A = null; // current analysis
+function analyze() {
+  const s = srcDrawable, sc = P.size / Math.max(s.width, s.height);
+  const W = Math.max(16, Math.round(s.width * sc)), H = Math.max(16, Math.round(s.height * sc));
+  const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+  const c = cv.getContext("2d", { willReadFrequently: true });
+  c.imageSmoothingQuality = "high"; c.drawImage(s, 0, 0, W, H);
+  const d = c.getImageData(0, 0, W, H).data, N = W * H, src = new Float32Array(N * 3);
+  const mean = [0, 0, 0];
+  for (let i = 0; i < N; i++) for (let k = 0; k < 3; k++) { src[i * 3 + k] = d[i * 4 + k]; mean[k] += d[i * 4 + k] / N; }
+
+  const radii = [];
+  for (let i = 0; i < P.layers; i++) radii.push(Math.max(1.5, P.maxR / 2 ** i));
+  const refs = radii.map(R => boxBlur(src, W, H, 3, radiusForSigma(R * 0.5)));
+
+  const soft = boxBlur(src, W, H, 3, 1);
+  const lum = (img, i) => 0.299 * img[i * 3] + 0.587 * img[i * 3 + 1] + 0.114 * img[i * 3 + 2];
+  const L = new Float32Array(N), L0 = new Float32Array(N);
+  for (let i = 0; i < N; i++) { L[i] = lum(soft, i); L0[i] = lum(src, i); }
+  const coarse = tensor(L, W, H, 4);   // stroke flow
+
+  // difference of Gaussians: thin lines and small spots respond, broad gradients don't
+  const g1 = boxBlur(L0, W, H, 1, radiusForSigma(0.8)), g2 = boxBlur(L0, W, H, 1, radiusForSigma(2.5));
+  const lineMask = new Uint8Array(N);
+  for (let i = 0; i < N; i++) lineMask[i] = Math.abs(g1[i] - g2[i]) > LINE_METRIC_T ? 1 : 0;
+
+  // "edge pixels" for the edge metric: top 15% by gradient magnitude
+  const at = (x, y) => L[clamp(y, 0, H - 1) * W + clamp(x, 0, W - 1)];
+  const gmag = new Float32Array(N);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) gmag[y * W + x] = Math.hypot(at(x + 1, y) - at(x - 1, y), at(x, y + 1) - at(x, y - 1));
+  const cut = Float32Array.from(gmag).sort()[Math.floor(N * 0.85)];
+  const edge = new Uint8Array(N);
+  for (let i = 0; i < N; i++) edge[i] = gmag[i] > cut ? 1 : 0;
+
+  const palette = P.palette > 0 ? kmeans(src, N, P.palette, rngFrom(P.seed, 777)) : null;
+  let groundData = null;
+  if (P.ground === "blurred") {
+    const g = boxBlur(src, W, H, 3, radiusForSigma(P.maxR * 0.75));
+    groundData = new ImageData(W, H);
+    for (let i = 0; i < N; i++) { groundData.data[i * 4] = g[i * 3]; groundData.data[i * 4 + 1] = g[i * 3 + 1]; groundData.data[i * 4 + 2] = g[i * 3 + 2]; groundData.data[i * 4 + 3] = 255; }
+  }
+  const toned = [mean[0] * 0.45 + 120 * 0.55, mean[1] * 0.45 + 76 * 0.55, mean[2] * 0.45 + 46 * 0.55];
+  return {
+    W, H, src, soft, srcCanvas: cv, refs, radii,
+    theta: coarse.theta, strength: coarse.strength, lineMask, edge, palette, groundData, toned,
+  };
+}
+
+// palette snap, then a small seeded HSV jitter
+function finishColor(c, rng, jitter = P.colorJitter) {
+  if (A.palette) c = nearest(A.palette, c).slice();
+  if (jitter > 0) {
+    let [h, s, v] = rgb2hsv(c[0], c[1], c[2]);
+    h = (h + (rng() - 0.5) * jitter * 0.5 + 1) % 1;
+    s = clamp(s * (1 + (rng() - 0.5) * jitter * 2), 0, 1);
+    v = clamp(v * (1 + (rng() - 0.5) * jitter * 2), 0, 1);
+    c = hsv2rgb(h, s, v);
+  }
+  return c;
+}
+const refColor = (ref, x, y) => { const i = ((y | 0) * A.W + (x | 0)) * 3; return [ref[i], ref[i + 1], ref[i + 2]]; };
+
+// ---------- brushes: make() plans a stroke as data, draw() rasterizes it ----------
+function smoothPath(ctx, pts) {
+  ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 1; i < pts.length - 1; i++) {
+    ctx.quadraticCurveTo(pts[i][0], pts[i][1], (pts[i][0] + pts[i + 1][0]) / 2, (pts[i][1] + pts[i + 1][1]) / 2);
+  }
+  const l = pts[pts.length - 1]; ctx.lineTo(l[0], l[1]);
+}
+
+// Grow a path both ways from (x, y) along a direction field. ok(i, px, py, dx, dy) decides each step.
+function trace(x, y, theta, step, maxSteps, ok) {
+  const W = A.W, H = A.H, at = (px, py) => clamp(py | 0, 0, H - 1) * W + clamp(px | 0, 0, W - 1);
+  const i0 = at(x, y);
+  const grow = sgn => {
+    const out = [];
+    let px = x, py = y, ldx = Math.cos(theta[i0]) * sgn, ldy = Math.sin(theta[i0]) * sgn;
+    for (let k = 0; k < maxSteps; k++) {
+      const i = at(px, py);
+      let dx = Math.cos(theta[i]), dy = Math.sin(theta[i]);
+      if (dx * ldx + dy * ldy < 0) { dx = -dx; dy = -dy; }
+      dx = 0.6 * dx + 0.4 * ldx; dy = 0.6 * dy + 0.4 * ldy;
+      const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
+      const nx = px + dx * step, ny = py + dy * step;
+      if (nx < 0 || ny < 0 || nx >= W || ny >= H) break;
+      if (!ok(at(nx, ny), px, py, nx, ny, dx, dy)) break;
+      px = nx; py = ny; ldx = dx; ldy = dy; out.push([px, py]);
+    }
+    return out;
+  };
+  const fwd = grow(1), bwd = grow(-1);
+  return [...bwd.reverse(), [x, y], ...fwd];
+}
+const meanColor = (img, pts) => {
+  const s = [0, 0, 0];
+  for (const p of pts) { const i = ((p[1] | 0) * A.W + (p[0] | 0)) * 3; s[0] += img[i]; s[1] += img[i + 1]; s[2] += img[i + 2]; }
+  return s.map(v => v / pts.length);
+};
+
+const B = {
+  dab: {
+    make(x, y, R, ref, canv, rng) {
+      return { b: "dab", x, y, r: R * (0.55 + 0.25 * rng()), c: finishColor(refColor(ref, x, y), rng), a: P.opacity };
+    },
+    draw(ctx, s) {
+      ctx.globalAlpha = s.a; ctx.fillStyle = rgb(s.c);
+      ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill();
+    },
+  },
+
+  // Edge-aware curve: stops before the color under or beside the brush drifts past the tolerance.
+  curve: {
+    make(x, y, R, ref, canv, rng) {
+      const W = A.W, H = A.H, w = R * 1.4, step = R * 0.75, lat = w * 0.45, tol = P.tol;
+      const at = (px, py) => clamp(py | 0, 0, H - 1) * W + clamp(px | 0, 0, W - 1);
+      const i0 = at(x, y), base = [ref[i0 * 3], ref[i0 * 3 + 1], ref[i0 * 3 + 2]];
+      const far = (i, q) => Math.hypot(ref[i * 3] - q[0], ref[i * 3 + 1] - q[1], ref[i * 3 + 2] - q[2]);
+      const fits = (px, py, nx, ny) =>
+        far(at(px, py), base) <= tol &&
+        far(at(px + nx * lat, py + ny * lat), base) <= tol &&
+        far(at(px - nx * lat, py - ny * lat), base) <= tol;
+      const pts = A.strength[i0] < 1 ? [[x, y]] : trace(x, y, A.theta, step, Math.ceil(P.maxLen / 2), (j, px, py, nx, ny, dx, dy) =>
+        A.strength[at(px, py)] >= 1 &&
+        fits((px + nx) / 2, (py + ny) / 2, -dy, dx) && fits(nx, ny, -dy, dx) &&
+        !(far(j, [canv[j * 4], canv[j * 4 + 1], canv[j * 4 + 2]]) < far(j, base)));
+      return { b: "curve", pts, w, c: finishColor(meanColor(ref, pts), rng), a: P.opacity, seed: seedOf(rng) };
+    },
+    draw(ctx, s) {
+      const r = rngFrom(s.seed), pts = s.pts, w = s.w;
+      if (pts.length < 2) {
+        ctx.globalAlpha = s.a; ctx.fillStyle = rgb(s.c);
+        ctx.beginPath(); ctx.arc(pts[0][0], pts[0][1], w * 0.45, 0, Math.PI * 2); ctx.fill(); return;
+      }
+      const nrm = pts.map((p, i) => {
+        const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)];
+        const dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1;
+        return [-dy / l, dx / l];
+      });
+      ctx.lineCap = "round"; ctx.lineJoin = "round";
+      ctx.globalAlpha = s.a * 0.6; ctx.strokeStyle = rgb(s.c); ctx.lineWidth = w;
+      smoothPath(ctx, pts); ctx.stroke();
+      const n = clamp(Math.round(w / 2.2), 1, 12);
+      if (n < 2) return;
+      ctx.lineWidth = Math.max(0.8, (w / n) * 1.4);
+      for (let k = 0; k < n; k++) {
+        const o = ((k + 0.5) / n - 0.5) * w * 0.85;
+        let m = pts.length; if (m > 2 && r() < 0.35) m--;
+        const off = pts.slice(0, m).map((p, i) => [p[0] + nrm[i][0] * o, p[1] + nrm[i][1] * o]);
+        ctx.strokeStyle = rgb(shade(s.c, (r() - 0.5) * 0.18));
+        ctx.globalAlpha = s.a * (0.45 + 0.5 * r());
+        smoothPath(ctx, off); ctx.stroke();
+      }
+    },
+  },
+
+};
+
+const PANELS = [
+  { id: "dab", name: "Dab", desc: "Round dabs at the sampled color, coarse to fine.", brush: "dab" },
+  { id: "curve", name: "Curved, edge-aware", desc: "Curves that follow the edge flow and stop before the color under or beside the brush drifts past the tolerance.", brush: "curve" },
+];
+
+// ---------- planner + renderer ----------
+const mc = new MessageChannel(), q = [];
+mc.port1.onmessage = () => q.shift()();
+const yieldTask = () => new Promise(r => { q.push(r); mc.port2.postMessage(0); });
+
+function drawGround(ctx, g) {
+  ctx.globalAlpha = 1;
+  if (g.type === "blurred") ctx.putImageData(g.data, 0, 0);
+  else { ctx.fillStyle = g.type === "toned" ? rgb(g.color) : "#f6f4ef"; ctx.fillRect(0, 0, A.W, A.H); }
+}
+function fnv(data) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < data.length; i++) { h ^= data[i]; h = Math.imul(h, 0x01000193); }
+  return (h >>> 0).toString(16).padStart(8, "0");
+}
+const RAMP = [[10, 10, 20], [90, 30, 130], [230, 90, 50], [255, 230, 120]];
+function score(data) {
+  const N = A.W * A.H, heat = new ImageData(A.W, A.H), soft = A.soft, src = A.src;
+  let all = 0, edge = 0, ne = 0, line = 0, nl = 0;
+  for (let i = 0; i < N; i++) {
+    const e = Math.hypot(soft[i * 3] - data[i * 4], soft[i * 3 + 1] - data[i * 4 + 1], soft[i * 3 + 2] - data[i * 4 + 2]);
+    all += e;
+    // edges and lines are scored against the sharp source: a blurred reference would punish keeping them sharp
+    const es = (A.edge[i] || A.lineMask[i]) ? Math.hypot(src[i * 3] - data[i * 4], src[i * 3 + 1] - data[i * 4 + 1], src[i * 3 + 2] - data[i * 4 + 2]) : 0;
+    if (A.edge[i]) { edge += es; ne++; }
+    if (A.lineMask[i]) { line += es; nl++; }
+    const t = Math.min(1, e / 90) * 3, k = Math.min(2, t | 0), f = t - k;
+    for (let ch = 0; ch < 3; ch++) heat.data[i * 4 + ch] = RAMP[k][ch] + (RAMP[k + 1][ch] - RAMP[k][ch]) * f;
+    heat.data[i * 4 + 3] = 255;
+  }
+  return { all: all / N, edge: edge / Math.max(1, ne), line: line / Math.max(1, nl), heat };
+}
+
+let renderId = 0;
+const panels = {};
+
+function showOverlay(pan) {
+  if (P.errMap && pan.score) { pan.octx.putImageData(pan.score.heat, 0, 0); pan.tag.textContent = "ERROR"; pan.setOverlay(true); }
+  else pan.setOverlay(false);
+}
+
+async function paint(def, id) {
+  const pan = panels[def.id], ctx = pan.ctx, W = A.W, H = A.H, brush = B[def.brush];
+  for (const cv of [pan.canvas, pan.overlay]) { cv.width = W; cv.height = H; }
+  pan.score = null; pan.plan = null; showOverlay(pan);
+  const ground = { type: P.ground, color: A.toned, data: A.groundData };
+  drawGround(ctx, ground);
+  pan.stats.textContent = "painting…";
+  const strokes = [], perLayer = [];
+  let work = 0, tick = performance.now();
+  const drawAll = async ls => {
+    for (const s of ls) {
+      B[s.b].draw(ctx, s);
+      const now = performance.now();
+      if (now - tick > 12) {
+        work += now - tick; await yieldTask();
+        if (id !== renderId) return false;
+        tick = performance.now();
+      }
+    }
+    strokes.push(...ls); perLayer.push(ls.length);
+    return true;
+  };
+  for (let li = 0; li < A.radii.length; li++) {
+    const R = A.radii[li], ref = A.refs[li];
+    const canv = ctx.getImageData(0, 0, W, H).data;
+    const rng = rngFrom(P.seed, li * 1009 + 1);
+    const grid = Math.max(2, Math.round(R));
+    const ls = [];
+    for (let gy = 0; gy < H; gy += grid) for (let gx = 0; gx < W; gx += grid) {
+      let sum = 0, n = 0, maxE = -1, mx = gx, my = gy;
+      const ey = Math.min(H, gy + grid), ex = Math.min(W, gx + grid);
+      for (let y = gy; y < ey; y++) for (let x = gx; x < ex; x++) {
+        const i = y * W + x;
+        const e = Math.hypot(ref[i * 3] - canv[i * 4], ref[i * 3 + 1] - canv[i * 4 + 1], ref[i * 3 + 2] - canv[i * 4 + 2]);
+        sum += e; n++; if (e > maxE) { maxE = e; mx = x; my = y; }
+      }
+      const jx = (rng() - 0.5) * P.jitter * grid, jy = (rng() - 0.5) * P.jitter * grid;
+      if (li === 0 || sum / n > P.threshold) {
+        ls.push(brush.make(clamp(mx + jx, 0, W - 1), clamp(my + jy, 0, H - 1), R, ref, canv, rng));
+      }
+    }
+    for (let i = ls.length - 1; i > 0; i--) { const j = (rng() * (i + 1)) | 0; [ls[i], ls[j]] = [ls[j], ls[i]]; }
+    if (!(await drawAll(ls))) return;
+  }
+  work += performance.now() - tick;
+  const data = ctx.getImageData(0, 0, W, H).data;
+  pan.plan = { ground, strokes };
+  pan.hash = fnv(data);
+  pan.score = score(data);
+  const layers = perLayer.join(" / ");
+  pan.stats.innerHTML =
+    `<span class="metric m-line">line error ${pan.score.line.toFixed(1)}</span><span class="metric m-edge">edge error ${pan.score.edge.toFixed(1)}</span><span class="metric m-all">error ${pan.score.all.toFixed(1)}</span>` +
+    `<span>${strokes.length.toLocaleString("en")} strokes (${layers})</span><span>${Math.round(work)} ms</span><span>#${pan.hash}</span>`;
+  showOverlay(pan);
+}
+
+function markBest() {
+  for (const key of ["all", "edge", "line"]) {
+    let best = null;
+    for (const d of PANELS) { const s = panels[d.id].score; if (s && (!best || s[key] < best.score[key])) best = panels[d.id]; }
+    if (best) best.stats.querySelector(".m-" + key).classList.add("best");
+  }
+}
+
+async function renderAll() {
+  const id = ++renderId;
+  replayBtn.disabled = true;
+  A = analyze();
+  drawSourceView();
+  subs.layers.textContent = "Brush sizes: " + A.radii.map(r => +r.toFixed(1)).join(" · ") + " px";
+  await Promise.all(PANELS.map(d => paint(d, id)));
+  if (id === renderId) { markBest(); replayBtn.disabled = false; }
+}
+
+async function replay() {
+  const id = ++renderId;
+  replayBtn.disabled = true;
+  const frame = () => new Promise(r => requestAnimationFrame(r));
+  await Promise.all(PANELS.map(async d => {
+    const pan = panels[d.id], { ground, strokes } = pan.plan, ctx = pan.ctx;
+    pan.setOverlay(false);
+    drawGround(ctx, ground);
+    const chunk = Math.max(1, Math.ceil(strokes.length / 150));
+    for (let i = 0; i < strokes.length; i++) {
+      B[strokes[i].b].draw(ctx, strokes[i]);
+      if (i % chunk === chunk - 1) { await frame(); if (id !== renderId) return; }
+    }
+    const h = fnv(ctx.getImageData(0, 0, A.W, A.H).data);
+    const tag = document.createElement("span");
+    tag.className = h === pan.hash ? "ok" : "bad";
+    tag.textContent = h === pan.hash ? "replay matches" : `replay differs #${h}`;
+    pan.stats.querySelector(".ok,.bad")?.remove();
+    pan.stats.appendChild(tag);
+    showOverlay(pan);
+  }));
+  if (id === renderId) replayBtn.disabled = false;
+}
+
+// ---------- sample scene ----------
+function makeSample() {
+  const W = 640, H = 480, cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+  const c = cv.getContext("2d"), r = rngFrom(42, 9);
+  let g = c.createLinearGradient(0, 0, 0, H * 0.62);
+  g.addColorStop(0, "#1c3a6e"); g.addColorStop(0.55, "#d9795a"); g.addColorStop(1, "#f5c46a");
+  c.fillStyle = g; c.fillRect(0, 0, W, H);
+  g = c.createRadialGradient(430, 230, 10, 430, 230, 140);
+  g.addColorStop(0, "rgba(255,244,205,1)"); g.addColorStop(0.25, "rgba(255,226,160,.9)"); g.addColorStop(1, "rgba(255,200,120,0)");
+  c.fillStyle = g; c.fillRect(0, 0, W, H);
+  c.fillStyle = "#fff3cf"; c.beginPath(); c.arc(430, 230, 34, 0, Math.PI * 2); c.fill();
+  const ranges = [["#6a5476", 250, 40, 0.012], ["#463a5e", 270, 34, 0.02], ["#262840", 292, 22, 0.035]];
+  ranges.forEach(([col, base, amp, f], k) => {
+    c.fillStyle = col; c.beginPath(); c.moveTo(0, H);
+    for (let x = 0; x <= W; x += 4) c.lineTo(x, base - amp * (Math.sin(x * f + k * 2) + 0.5 * Math.sin(x * f * 2.7 + k) + 0.25 * Math.sin(x * f * 6.1)));
+    c.lineTo(W, H); c.closePath(); c.fill();
+  });
+  g = c.createLinearGradient(0, 300, 0, H);
+  g.addColorStop(0, "#3a4e72"); g.addColorStop(1, "#14203a");
+  c.fillStyle = g; c.fillRect(0, 300, W, H - 300);
+  for (let i = 0; i < 70; i++) {
+    const y = 305 + i * 1.6 + r() * 3, w = 90 - i * 0.9 + r() * 40;
+    c.globalAlpha = 0.55 - i * 0.006; c.fillStyle = i % 3 ? "#f2b765" : "#ffe7b0";
+    c.fillRect(430 - w / 2 + (r() - 0.5) * 20, y, w, 1.4);
+  }
+  c.globalAlpha = 1;
+  c.fillStyle = "#1b2416"; c.beginPath(); c.moveTo(0, H);
+  for (let x = 0; x <= W; x += 8) c.lineTo(x, 420 + 18 * Math.sin(x * 0.01) + 6 * Math.sin(x * 0.05));
+  c.lineTo(W, H); c.fill();
+  c.fillStyle = "#2a1d14"; c.fillRect(96, 230, 14, 200);
+  [[103, 215, 60, "#1f3a22"], [70, 250, 42, "#25472a"], [140, 245, 46, "#2d5431"], [100, 175, 44, "#2f5a33"], [120, 205, 38, "#3a6a3c"]].forEach(([x, y, rr, col]) => {
+    c.fillStyle = col; c.beginPath(); c.arc(x, y, rr, 0, Math.PI * 2); c.fill();
+  });
+  c.lineCap = "round";
+  for (let i = 0; i < 260; i++) {
+    const x = r() * W, y = 430 + r() * 50, h = 10 + r() * 22;
+    c.strokeStyle = r() < 0.5 ? "#3f6a2e" : "#5c8a3a"; c.lineWidth = 1.5;
+    c.beginPath(); c.moveTo(x, y); c.quadraticCurveTo(x + (r() - 0.5) * 8, y - h / 2, x + (r() - 0.5) * 12, y - h); c.stroke();
+  }
+  for (let i = 0; i < 70; i++) {
+    const x = r() * W, y = 425 + r() * 50;
+    c.fillStyle = ["#e0473a", "#f2c335", "#f4efe6", "#c94f8a"][(r() * 4) | 0];
+    c.beginPath(); c.arc(x, y, 2.5 + r() * 3, 0, Math.PI * 2); c.fill();
+  }
+  return cv;
+}
+
+// ---------- UI ----------
+const P = { seed: 7, size: 640, maxR: 24, layers: 4, threshold: 24, tol: 30, maxLen: 8, jitter: 0.6, colorJitter: 0.06, palette: 0, opacity: 0.9, ground: "toned", errMap: false };
+const SPEC = [
+  { k: "seed", label: "Seed", type: "seed" },
+  { k: "size", label: "Working size", type: "select", opts: [[480, "480 px"], [640, "640 px"], [960, "960 px"], [1280, "1280 px"]] },
+  { group: "Layers" },
+  { k: "maxR", label: "Largest brush", min: 6, max: 48, step: 2, fmt: v => v + " px" },
+  { k: "layers", label: "Layers", min: 1, max: 5, step: 1, sub: true },
+  { k: "threshold", label: "Error threshold", min: 0, max: 80, step: 1 },
+  { k: "tol", label: "Color tolerance", min: 5, max: 120, step: 1 },
+  { k: "maxLen", label: "Curve length", min: 1, max: 16, step: 1, fmt: v => v + " steps" },
+  { group: "Look" },
+  { k: "jitter", label: "Grid jitter", min: 0, max: 1, step: 0.05 },
+  { k: "colorJitter", label: "Color jitter", min: 0, max: 0.3, step: 0.01 },
+  { k: "palette", label: "Palette", min: 0, max: 24, step: 2, fmt: v => +v === 0 ? "full color" : v + " colors" },
+  { k: "opacity", label: "Paint opacity", min: 0.3, max: 1, step: 0.05 },
+  { k: "ground", label: "Ground", type: "select", opts: [["white", "White canvas"], ["toned", "Toned ground"], ["blurred", "Blurred underpainting"]] },
+  { k: "errMap", label: "Show error map", type: "check" },
+];
+const $ = s => document.querySelector(s);
+const controls = $("#controls"), replayBtn = $("#replayBtn"), subs = {};
+let timer = 0;
+const schedule = () => { clearTimeout(timer); timer = setTimeout(renderAll, 180); };
+
+for (const s of SPEC) {
+  if (s.group) { const g = document.createElement("div"); g.className = "group"; g.textContent = s.group; controls.appendChild(g); continue; }
+  const box = document.createElement("div"); box.className = "ctl";
+  const id = "ctl-" + s.k;
+  if (s.type === "seed") {
+    box.innerHTML = `<div class="top"><label for="${id}">${s.label}</label></div><div class="seedrow"><input type="number" id="${id}" value="${P.seed}" step="1"><button class="btn" type="button" id="reseed">Next seed</button></div>`;
+    controls.appendChild(box);
+    const inp = box.querySelector("input");
+    inp.addEventListener("input", () => { P.seed = parseInt(inp.value, 10) || 0; schedule(); });
+    box.querySelector("#reseed").addEventListener("click", () => { P.seed++; inp.value = P.seed; schedule(); });
+    continue;
+  }
+  if (s.type === "check") {
+    box.className = "ctl check";
+    box.innerHTML = `<input type="checkbox" id="${id}"><label for="${id}">${s.label}</label>`;
+    controls.appendChild(box);
+    const inp = box.querySelector("input");
+    inp.addEventListener("change", () => {
+      P.errMap = inp.checked; $("#legend").hidden = !inp.checked;
+      for (const d of PANELS) showOverlay(panels[d.id]);
+    });
+    continue;
+  }
+  if (s.type === "select") {
+    box.innerHTML = `<div class="top"><label for="${id}">${s.label}</label></div><select id="${id}">${s.opts.map(([v, t]) => `<option value="${v}"${v == P[s.k] ? " selected" : ""}>${t}</option>`).join("")}</select>`;
+    controls.appendChild(box);
+    const sel = box.querySelector("select");
+    sel.addEventListener("change", () => { P[s.k] = typeof P[s.k] === "number" ? +sel.value : sel.value; schedule(); });
+    continue;
+  }
+  const fmt = s.fmt || (v => v);
+  box.innerHTML = `<div class="top"><label for="${id}">${s.label}</label><output for="${id}">${fmt(P[s.k])}</output></div><input type="range" id="${id}" min="${s.min}" max="${s.max}" step="${s.step}" value="${P[s.k]}">`;
+  controls.appendChild(box);
+  const inp = box.querySelector("input"), out = box.querySelector("output");
+  inp.addEventListener("input", () => { P[s.k] = +inp.value; out.textContent = fmt(inp.value); schedule(); });
+  if (s.sub) { subs[s.k] = document.createElement("div"); subs[s.k].className = "sub"; box.appendChild(subs[s.k]); }
+}
+
+const panelsEl = $("#panels");
+for (const d of PANELS) {
+  const el = document.createElement("article"); el.className = "panel";
+  el.innerHTML = `<div class="head"><div><h2>${d.name}</h2><p class="desc">${d.desc}</p></div><button class="btn" type="button">Enlarge</button></div>
+  <div class="stage"><canvas></canvas><canvas class="overlay" hidden></canvas><span class="tag" hidden>SOURCE</span></div><div class="stats"></div>`;
+  panelsEl.appendChild(el);
+  const [canvas, overlay] = el.querySelectorAll("canvas"), tag = el.querySelector(".tag");
+  const pan = panels[d.id] = {
+    el, canvas, overlay, tag,
+    ctx: canvas.getContext("2d", { willReadFrequently: true }),
+    octx: overlay.getContext("2d"),
+    stats: el.querySelector(".stats"),
+    setOverlay(v) { overlay.hidden = !v; tag.hidden = !v; },
+  };
+  const btn = el.querySelector(".head .btn");
+  btn.addEventListener("click", () => { const big = el.classList.toggle("big"); btn.textContent = big ? "Shrink" : "Enlarge"; });
+  const stage = el.querySelector(".stage");
+  stage.addEventListener("pointerdown", e => {
+    if (!A) return;
+    pan.octx.drawImage(A.srcCanvas, 0, 0); tag.textContent = "SOURCE"; pan.setOverlay(true);
+    stage.setPointerCapture?.(e.pointerId);
+  });
+  for (const ev of ["pointerup", "pointercancel", "lostpointercapture"]) stage.addEventListener(ev, () => showOverlay(pan));
+}
+
+function drawSourceView() {
+  const v = $("#srcView");
+  v.width = A.W; v.height = A.H;
+  v.getContext("2d").drawImage(A.srcCanvas, 0, 0);
+}
+
+let srcDrawable = makeSample();
+function loadFile(f) {
+  if (!f || !f.type.startsWith("image/")) return;
+  const url = URL.createObjectURL(f), img = new Image();
+  img.onload = () => { srcDrawable = img; $("#srcName").textContent = f.name + ` (${img.naturalWidth}×${img.naturalHeight})`; renderAll(); };
+  img.onerror = () => { $("#srcName").textContent = "That file could not be read as an image. Try a JPG, PNG or WebP."; };
+  img.src = url;
+}
+$("#file").addEventListener("change", e => loadFile(e.target.files[0]));
+$("#sampleBtn").addEventListener("click", () => { srcDrawable = makeSample(); $("#srcName").textContent = "Sample scene (generated in the page)"; renderAll(); });
+replayBtn.addEventListener("click", replay);
+const wrap = $("#wrap");
+addEventListener("dragover", e => { e.preventDefault(); wrap.classList.add("drop"); });
+addEventListener("dragleave", e => { if (!e.relatedTarget) wrap.classList.remove("drop"); });
+addEventListener("drop", e => { e.preventDefault(); wrap.classList.remove("drop"); loadFile(e.dataTransfer.files[0]); });
+
+// test hook: load a same-origin image by URL and wait for all panels
+window.__loadUrl = (u, name) => new Promise(res => {
+  const img = new Image();
+  img.onload = async () => { srcDrawable = img; $("#srcName").textContent = name || u; await renderAll(); res(); };
+  img.src = u;
+});
+
+renderAll();
+</script>

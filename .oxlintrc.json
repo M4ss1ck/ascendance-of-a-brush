@@ -1,0 +1,24 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn", "oxc", "import", "vitest"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn",
+    "perf": "warn"
+  },
+  "rules": {
+    // CSS side-effect imports are how Vite + Tailwind load styles.
+    "import/no-unassigned-import": ["warn", { "allow": ["**/*.css"] }],
+    // Targets window.postMessage; Worker.postMessage has no targetOrigin and fires falsely.
+    "unicorn/require-post-message-target-origin": "off",
+    "no-restricted-properties": [
+      "error",
+      {
+        "object": "Math",
+        "property": "random",
+        "message": "Use the seeded PRNG (rngFrom). Math.random breaks determinism, see ADR-0003."
+      }
+    ]
+  },
+  "ignorePatterns": ["dist", "docs/reference"]
+}

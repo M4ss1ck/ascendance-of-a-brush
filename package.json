@@ -1,0 +1,37 @@
+{
+  "name": "ascendance-of-a-brush",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc",
+    "lint": "oxlint --deny-warnings",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
+    "test": "vitest run --project unit",
+    "test:browser": "vitest run --project browser",
+    "test:all": "vitest run",
+    "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test:all && pnpm build",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.5",
+    "@vitest/browser-playwright": "^5.1.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.0",
+    "oxfmt": "^0.78.0",
+    "oxlint": "^1.93.0",
+    "playwright": "^1.65.1",
+    "tailwindcss": "^4.3.5",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8",
+    "vitest": "^5.1.0"
+  },
+  "engines": {
+    "node": ">=26"
+  },
+  "packageManager": "pnpm@12.2.1"
+}
