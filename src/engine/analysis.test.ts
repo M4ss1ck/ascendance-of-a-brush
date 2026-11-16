@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { analyze } from "./analysis.ts";
+import { boxBlur, radiusForSigma } from "./blur.ts";
 
 const W = 10,
   H = 10;
@@ -39,6 +40,18 @@ describe("analyze", () => {
       expect(a.refs.length).toBe(layers);
       for (const ref of a.refs) expect(ref.length).toBe(W * H * 3);
     }
+  });
+
+  // ADR-0004: each reference is blurred at sigma = R/2, not at box radius R/2.
+  it("blurs each reference at sigma R/2 via radiusForSigma", () => {
+    const px = new Uint8ClampedArray(W * H * 4);
+    for (let i = 0; i < px.length; i++) px[i] = (i * 37) & 255;
+    const a = analyze(px, W, H, settings({ layers: 4, maxR: 12 }));
+    a.radii.forEach((R, l) => {
+      expect(a.refs[l]).toEqual(boxBlur(a.src, W, H, 3, radiusForSigma(R * 0.5)));
+      expect(a.refs[l]!.every(Number.isFinite)).toBe(true);
+    });
+    expect(a.refs[3]).toEqual(a.src); // R = 1.5 -> sigma 0.75 -> radius 0
   });
 
   it("extracts a palette only when the palette size is positive", () => {
