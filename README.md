@@ -6,7 +6,7 @@ Status: bootstrapping. The brush engine is being ported from the approved protot
 
 ## Develop
 
-Requires Node 22 and pnpm.
+Requires Node 26 (current LTS) and pnpm 12.
 
 ```sh
 pnpm install

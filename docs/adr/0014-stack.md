@@ -3,7 +3,7 @@
 - **App:** Vite and strict TypeScript, with plain DOM and no UI framework. The UI is a handful of controls, a selection overlay and a canvas, and the engine is framework-free math anyway.
 - **Styling:** Tailwind CSS v4 through `@tailwindcss/vite`.
 - **Tooling:**
-  - pnpm on Node 22.
+  - pnpm on Node 26 (the current LTS).
   - oxlint for lint, which also bans `Math.random`.
   - oxfmt for formatting, including Tailwind class sorting.
   - Husky and lint-staged in pre-commit.
