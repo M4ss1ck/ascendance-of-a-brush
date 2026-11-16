@@ -80,6 +80,10 @@ The part of a stroke that extends past the mask outline.
 The rendered result of a plan.
 _Avoid_: output, artwork, render
 
+**Snapshot**:
+The painting as it stands after one layer. Shown while painting and kept to compare layers afterwards.
+_Avoid_: preview, frame, intermediate
+
 **Replay**:
 Redrawing a painting from its stored stroke list alone.
 

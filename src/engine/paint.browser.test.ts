@@ -5,12 +5,15 @@ import { analyze, type Analysis } from "./analysis.ts";
 import { drawGround, type BrushName, type GroundPlan } from "./brushes.ts";
 import { metricMasks, score } from "./metrics.ts";
 import type {
+  LayerProgress,
+  PaintImageRequest,
   PaintReply,
   PaintRequest,
   PaintSettings,
   ReplayReply,
   ReplayRequest,
 } from "./paint.ts";
+import { workingSize } from "./resample.ts";
 import { type Selection } from "./selection.ts";
 
 // Pins the ported layer loop (docs/reference/brush-bench.html lines 478-521) inside the
@@ -99,12 +102,25 @@ const settings: PaintSettings = {
   ground: "toned",
 };
 
-function inWorker<T>(request: PaintRequest | ReplayRequest): Promise<T> {
+/** Progress updates arrive before the reply; only the reply, which has no layer field, ends a run. */
+const isLayer = (d: unknown): d is LayerProgress =>
+  typeof d === "object" && d !== null && (d as { kind?: unknown }).kind === "layer";
+
+/** Runs one request in a fresh worker and resolves with its final reply. */
+function inWorker<T>(
+  request: PaintRequest | PaintImageRequest | ReplayRequest,
+  onLayer?: (progress: LayerProgress) => void,
+): Promise<T> {
   return new Promise((resolve, reject) => {
     const w = new Worker(new URL("./painter.worker.ts", import.meta.url), { type: "module" });
-    w.addEventListener("message", (e: MessageEvent<T>) => {
+    w.addEventListener("message", (e: MessageEvent<LayerProgress | T>) => {
+      const data: LayerProgress | T = e.data;
+      if (isLayer(data)) {
+        onLayer?.(data);
+        return;
+      }
       w.terminate();
-      resolve(e.data);
+      resolve(data as T);
     });
     w.addEventListener("error", (e) => {
       w.terminate();
@@ -114,16 +130,25 @@ function inWorker<T>(request: PaintRequest | ReplayRequest): Promise<T> {
   });
 }
 
-const paintInWorker = (f: Fixture, s: PaintSettings, brush: BrushName, selection?: Selection) =>
-  inWorker<PaintReply>({
-    kind: "paint",
-    pixels: f.pixels,
-    W: f.W,
-    H: f.H,
-    settings: s,
-    brush,
-    ...(selection ? { selection } : {}),
-  });
+const paintInWorker = (
+  f: Fixture,
+  s: PaintSettings,
+  brush: BrushName,
+  selection?: Selection,
+  onLayer?: (progress: LayerProgress) => void,
+) =>
+  inWorker<PaintReply>(
+    {
+      kind: "paint",
+      pixels: f.pixels,
+      W: f.W,
+      H: f.H,
+      settings: s,
+      brush,
+      ...(selection ? { selection } : {}),
+    },
+    onLayer,
+  );
 
 const replayInWorker = (request: ReplayRequest) => inWorker<ReplayReply>(request);
 
@@ -347,5 +372,132 @@ describe("selection", () => {
 
     expect(reply.crop).toEqual({ x: 0, y: 0, w: 0, h: 0 });
     expect(reply.pixels.length).toBe(0);
+  });
+});
+
+/** Reads a transferred snapshot back, then releases it. */
+function snapshotHash(b: ImageBitmap): string {
+  const ctx = new OffscreenCanvas(b.width, b.height).getContext("2d", {
+    willReadFrequently: true,
+  })!;
+  ctx.drawImage(b, 0, 0);
+  const hash = fnv1a(ctx.getImageData(0, 0, b.width, b.height).data);
+  b.close();
+  return hash;
+}
+
+// Issue #6 "Painting lifecycle": the worker reports every layer with a snapshot of the
+// raster after it. The hook is observation only, so the layer messages must account for the
+// finished painting exactly and the pinned hashes above must not move.
+describe("layer progress", () => {
+  it.each(["dab", "curve"] as const)(
+    "%s reports each layer and snapshots the finished painting",
+    async (brush) => {
+      const f = squareAndLine();
+      const a = analyze(f.pixels, f.W, f.H, settings);
+      const progress: LayerProgress[] = [];
+      const reply = await paintInWorker(f, settings, brush, undefined, (p) => progress.push(p));
+
+      expect(progress.map((p) => p.layer)).toEqual(a.radii.map((_, i) => i));
+      expect(progress.map((p) => p.layers)).toEqual(a.radii.map(() => a.radii.length));
+      expect(progress.map((p) => p.radius)).toEqual(a.radii);
+      expect(reply.crop).toEqual({ x: 0, y: 0, w: f.W, h: f.H });
+
+      const last = progress.at(-1)!.snapshot;
+      const earlier = progress.slice(0, -1);
+      expect(last.width).toBe(f.W);
+      expect(last.height).toBe(f.H);
+      expect(snapshotHash(last)).toBe(fnv1a(reply.pixels));
+      for (const p of earlier) p.snapshot.close();
+    },
+  );
+});
+
+/** An opaque source for the upload tests: a gradient, a disk, a box and a hairline. */
+function sourceBitmap(w: number, h: number): ImageBitmap {
+  const ctx = new OffscreenCanvas(w, h).getContext("2d", { willReadFrequently: true })!;
+  const g = ctx.createLinearGradient(0, 0, w, h);
+  g.addColorStop(0, "#e8d0a0");
+  g.addColorStop(1, "#1e3c6a");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = "#b43c28";
+  ctx.beginPath();
+  ctx.arc(w * 0.3, h * 0.45, Math.min(w, h) * 0.22, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#28508c";
+  ctx.fillRect(w * 0.55, h * 0.18, w * 0.3, h * 0.5);
+  ctx.fillStyle = "#14141a";
+  ctx.fillRect(0, Math.round(h * 0.8), w, 1);
+  return ctx.canvas.transferToImageBitmap();
+}
+
+/** An upload with a transparent hole and a half-transparent band; the prototype ignores alpha. */
+function alphaBitmap(): ImageBitmap {
+  const ctx = new OffscreenCanvas(120, 90).getContext("2d", { willReadFrequently: true })!;
+  ctx.fillStyle = "#c8a05a";
+  ctx.fillRect(0, 0, 120, 90);
+  ctx.clearRect(30, 20, 40, 40);
+  ctx.fillStyle = "rgba(30, 70, 150, 0.5)";
+  ctx.fillRect(65, 35, 45, 40);
+  return ctx.canvas.transferToImageBitmap();
+}
+
+/** The prototype's own resampling (brush-bench.html lines 276-282), on the main thread. */
+function prototypeResample(src: ImageBitmap, size: number): Fixture {
+  const { W, H } = workingSize(src.width, src.height, size);
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(src, 0, 0, W, H);
+  return { W, H, pixels: ctx.getImageData(0, 0, W, H).data };
+}
+
+/**
+ * Paints one upload in the worker, and the same image resampled the prototype way on the main
+ * thread as a plain whole-image request. A bitmap is single use: the request transfers it, so
+ * each side draws its own.
+ */
+async function uploadHashes(
+  bitmap: () => ImageBitmap,
+  size: number,
+  brush: BrushName,
+): Promise<{ uploaded: string; main: string }> {
+  const uploaded = await inWorker<PaintReply>({
+    kind: "paintImage",
+    bitmap: bitmap(),
+    size,
+    settings,
+    brush,
+  });
+  const source = bitmap();
+  const image = prototypeResample(source, size);
+  source.close();
+  const main = await paintInWorker(image, settings, brush);
+  return { uploaded: fnv1a(uploaded.pixels), main: fnv1a(main.pixels) };
+}
+
+// Issue #6 "Input": resampling runs in the worker on an OffscreenCanvas. If it ever drifts from
+// the prototype's main-thread `<canvas>` path, these fail and the issue falls back to main.
+describe("paintImage", () => {
+  it.each([
+    [200, 120, 64],
+    [200, 120, 96],
+    [40, 30, 64],
+  ] as const)("%i×%i at %i hashes like the main thread", async (w, h, size) => {
+    const r = await uploadHashes(() => sourceBitmap(w, h), size, "curve");
+
+    expect(r.uploaded).toBe(r.main);
+  });
+
+  // Pinned fixed-seed hash of an upload with alpha (ADR-0008): alpha is ignored, exactly as in
+  // the prototype, which reads only RGB from the resampled raster.
+  it("ignores alpha like the prototype", async () => {
+    const r = await uploadHashes(alphaBitmap, 64, "curve");
+
+    expect(r.uploaded).toBe(r.main);
+    expect(r.uploaded).toBe("79fbe5b6");
   });
 });

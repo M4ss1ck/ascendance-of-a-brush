@@ -108,6 +108,13 @@ settings:
 importers:
 
   .:
+    dependencies:
+      '@fontsource/metal':
+        specifier: ^5.3.0
+        version: 5.3.0
+      '@fontsource/mononoki':
+        specifier: ^5.3.0
+        version: 5.3.0
     devDependencies:
       '@tailwindcss/vite':
         specifier: ^4.3.5
@@ -156,6 +163,12 @@ packages:
 
   '@emnapi/wasi-threads@2.2.0':
     resolution: {integrity: sha512-JP7OYH38Q7+pyTAe14raZHLQIK7BDKbdwji+Xi3pcd/6QkJYQH3SX4wu6EplGrGJWRepoNzedfm0G3B9Z4e9Rw==}
+
+  '@fontsource/metal@5.3.0':
+    resolution: {integrity: sha512-FdsaxqBzZWFVrEpm0xh8VAqBi/km5Sg/zHU/ibaELAYWuGuLg8vJtXAjyjESSbmsKUu/hl5ymn1W4ImAkb/BTw==}
+
+  '@fontsource/mononoki@5.3.0':
+    resolution: {integrity: sha512-jY8v/sxOCaH/MWlEp7/WJ4mg9407xbBkBiPEfFaH1dT9m7zDgXkLOpegFBCvJV4gT94VjszQl8iC0qUeuy7byQ==}
 
   '@jridgewell/gen-mapping@0.3.13':
     resolution: {integrity: sha512-2kkt/7niJ6MgEPxF0bYdQ6etZaA+fQvDcLKckhy1yIQOzaoKjBBjSj63/aLVjYE3qhRt5dvM+uUyfCg6UKCBbA==}
@@ -1192,6 +1205,10 @@ snapshots:
     dependencies:
       tslib: 2.9.1
     optional: true
+
+  '@fontsource/metal@5.3.0': {}
+
+  '@fontsource/mononoki@5.3.0': {}
 
   '@jridgewell/gen-mapping@0.3.13':
     dependencies:

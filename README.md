@@ -2,7 +2,7 @@
 
 A deterministic painter that runs entirely in your browser. Upload an image, pick what to paint (the whole image, a shape or a pencil outline) and a brush (Dab or Curved), and it paints it stroke by stroke. The same image, settings and seed always give the same painting.
 
-Status: bootstrapping. The brush engine is being ported from the approved prototype in [`docs/reference/brush-bench.html`](docs/reference/brush-bench.html). The plan is tracked in [GitHub Issues](https://github.com/M4ss1ck/ascendance-of-a-brush/issues).
+The app paints an uploaded image in the browser.
 
 ## Develop
 
