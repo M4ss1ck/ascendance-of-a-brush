@@ -11,6 +11,7 @@ import type {
   ReplayReply,
   ReplayRequest,
 } from "./paint.ts";
+import { type Selection } from "./selection.ts";
 
 // Pins the ported layer loop (docs/reference/brush-bench.html lines 478-521) inside the
 // worker from ADR-0010: two runs of the same input must give the same raster, and replaying
@@ -113,8 +114,16 @@ function inWorker<T>(request: PaintRequest | ReplayRequest): Promise<T> {
   });
 }
 
-const paintInWorker = (f: Fixture, s: PaintSettings, brush: BrushName) =>
-  inWorker<PaintReply>({ kind: "paint", pixels: f.pixels, W: f.W, H: f.H, settings: s, brush });
+const paintInWorker = (f: Fixture, s: PaintSettings, brush: BrushName, selection?: Selection) =>
+  inWorker<PaintReply>({
+    kind: "paint",
+    pixels: f.pixels,
+    W: f.W,
+    H: f.H,
+    settings: s,
+    brush,
+    ...(selection ? { selection } : {}),
+  });
 
 const replayInWorker = (request: ReplayRequest) => inWorker<ReplayReply>(request);
 
@@ -191,6 +200,8 @@ interface Case {
   fixture: Fixture;
   settings: PaintSettings;
   brush: BrushName;
+  /** A masked case exercises the masked-ground path; absent means the whole image. */
+  selection?: Selection;
 }
 
 const cases = (): Case[] => [
@@ -217,6 +228,15 @@ const parityCases = (): Case[] => [
     settings: { ...settings, colorJitter: 0, ground: "white" },
     brush,
   })),
+  // ADR-0009 rule 5: an all-ones rect mask lays the ground through the masked path and
+  // must still reproduce the prototype hash for hash.
+  {
+    id: "square-curve-all-ones-rect",
+    fixture: squareAndLine(),
+    settings,
+    brush: "curve",
+    selection: { kind: "rect", x: 0, y: 0, w: 32, h: 32 },
+  },
 ];
 
 // Runs the approved prototype's own `paint` on the same fixture and settings, so the
@@ -224,7 +244,7 @@ const parityCases = (): Case[] => [
 // restatement of it. See docs/reference/brush-bench.html and AGENTS.md.
 describe("prototype parity", () => {
   it.each(parityCases())("$id matches the prototype raster and strokes", async (c) => {
-    const worker = await paintInWorker(c.fixture, c.settings, c.brush);
+    const worker = await paintInWorker(c.fixture, c.settings, c.brush, c.selection);
     const prototype = await prototypePaint(
       c.fixture.pixels,
       c.fixture.W,
@@ -267,5 +287,65 @@ describe("metric thresholds", () => {
       expect(painted[key]).toBeLessThan(bare[key]);
       expect(painted[key]).toBeLessThan(ceiling[key]);
     }
+  });
+});
+
+// ADR-0009: the reply carries the painted object only, cropped to everything painted. A
+// whole-image painting keeps the full canvas, so its raster is byte-identical to before.
+describe("selection", () => {
+  // An ellipse over the square: smaller than the canvas, with room for strokes to bleed.
+  const ellipse: Selection = { kind: "ellipse", cx: 15, cy: 15, rx: 7, ry: 6 };
+  // Its mask spans x 8..21 and y 9..20 on the 32px canvas.
+  const brushes = ["dab", "curve"] as const;
+
+  it.each(brushes)("%s crops a whole-image painting to the full canvas", async (brush) => {
+    const f = squareAndLine();
+    const reply = await paintInWorker(f, settings, brush);
+
+    expect(reply.crop).toEqual({ x: 0, y: 0, w: f.W, h: f.H });
+    expect(reply.pixels.length).toBe(f.W * f.H * 4);
+  });
+
+  // Pinned fixed-seed crops (ADR-0008), each strictly wider than the ellipse mask on some
+  // side, so a stroke bled past the outline.
+  it.each([
+    ["dab", { x: 5, y: 1, w: 27, h: 29 }],
+    ["curve", { x: 6, y: 0, w: 26, h: 31 }],
+  ] as const)("%s crops a masked painting to the mask plus bleed", async (brush, crop) => {
+    const f = squareAndLine();
+    const reply = await paintInWorker(f, settings, brush, ellipse);
+
+    expect(reply.crop).toEqual(crop);
+    expect(crop.x < 8 || crop.y < 9 || crop.x + crop.w > 22 || crop.y + crop.h > 21).toBe(true);
+    expect(reply.pixels.length).toBe(crop.w * crop.h * 4);
+  });
+
+  it.each(brushes)("%s replays a masked plan to the same crop and pixels", async (brush) => {
+    const f = squareAndLine();
+    const reply = await paintInWorker(f, settings, brush, ellipse);
+    const replayed = await replayInWorker({ kind: "replay", plan: reply.plan, W: f.W, H: f.H });
+
+    expect(replayed.crop).toEqual(reply.crop);
+    expect(fnv1a(replayed.pixels)).toBe(fnv1a(reply.pixels));
+  });
+
+  // Pinned fixed-seed hashes of the cropped pixels (ADR-0008).
+  it.each([
+    ["dab", "50719762"],
+    ["curve", "53a625b0"],
+  ] as const)("%s pins the cropped pixel hash", async (brush, hash) => {
+    const f = squareAndLine();
+    const reply = await paintInWorker(f, settings, brush, ellipse);
+
+    expect(fnv1a(reply.pixels)).toBe(hash);
+  });
+
+  it.each(brushes)("%s replies a zero crop for an empty selection", async (brush) => {
+    const f = squareAndLine();
+    const empty: Selection = { kind: "polygon", pts: [] };
+    const reply = await paintInWorker(f, settings, brush, empty);
+
+    expect(reply.crop).toEqual({ x: 0, y: 0, w: 0, h: 0 });
+    expect(reply.pixels.length).toBe(0);
   });
 });

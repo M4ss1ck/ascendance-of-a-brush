@@ -15,6 +15,7 @@ import type { Analysis, Ground } from "./analysis.ts";
 import { clamp, hsv2rgb, rgb2hsv, shade, type RGB } from "./color.ts";
 import { nearest } from "./palette.ts";
 import { rngFrom, seedOf, type Rng } from "./prng.ts";
+import type { Mask } from "./selection.ts";
 
 export type Ctx2D = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 
@@ -48,10 +49,18 @@ export interface CurveStroke {
 export type Stroke = DabStroke | CurveStroke;
 export type BrushName = Stroke["b"];
 
+/** The white ground tone: the same bytes as `#f6f4ef`. */
+const WHITE: RGB = [246, 244, 239];
+
 export interface GroundPlan {
   type: Ground;
   color: RGB;
   data: Uint8ClampedArray | null;
+  /**
+   * Lays the ground only where the mask is 1; everything else stays transparent. Absent for
+   * a whole-image selection. See ADR-0009.
+   */
+  mask?: Mask;
 }
 
 /** Ported from `rgb` (line 174). */
@@ -246,7 +255,9 @@ export function makeCurve(
             a.strength[at(px, py)]! >= 1 &&
             fits((px + nx) / 2, (py + ny) / 2, -dy, dx) &&
             fits(nx, ny, -dy, dx) &&
-            !(far(j, [canv[j * 4]!, canv[j * 4 + 1]!, canv[j * 4 + 2]!]) < far(j, base)),
+            // ADR-0009 rule 4: a transparent canvas pixel never stops the stroke.
+            (canv[j * 4 + 3] === 0 ||
+              !(far(j, [canv[j * 4]!, canv[j * 4 + 1]!, canv[j * 4 + 2]!]) < far(j, base))),
           W,
           H,
         );
@@ -322,10 +333,34 @@ export function drawStroke(ctx: Ctx2D, s: Stroke): void {
 /** Ported from `drawGround` (lines 442-446), with the dimensions passed in instead of `A`. */
 export function drawGround(ctx: Ctx2D, g: GroundPlan, W: number, H: number): void {
   ctx.globalAlpha = 1;
+  if (g.mask) {
+    // A masked ground is one opaque RGBA buffer inside the mask, transparent outside (ADR-0009).
+    const px = new Uint8ClampedArray(W * H * 4);
+    const c: RGB = g.type === "toned" ? g.color : WHITE;
+    const r = clamp(c[0] | 0, 0, 255),
+      gr = clamp(c[1] | 0, 0, 255),
+      b = clamp(c[2] | 0, 0, 255);
+    for (let i = 0; i < W * H; i++) {
+      if (!g.mask[i]) continue;
+      const j = i * 4;
+      if (g.type === "blurred") {
+        px[j] = g.data![j]!;
+        px[j + 1] = g.data![j + 1]!;
+        px[j + 2] = g.data![j + 2]!;
+      } else {
+        px[j] = r;
+        px[j + 1] = gr;
+        px[j + 2] = b;
+      }
+      px[j + 3] = 255;
+    }
+    ctx.putImageData(new ImageData(px, W, H), 0, 0);
+    return;
+  }
   if (g.type === "blurred")
     ctx.putImageData(new ImageData(new Uint8ClampedArray(g.data!), W, H), 0, 0);
   else {
-    ctx.fillStyle = g.type === "toned" ? rgb(g.color) : "#f6f4ef";
+    ctx.fillStyle = g.type === "toned" ? rgb(g.color) : rgb(WHITE);
     ctx.fillRect(0, 0, W, H);
   }
 }

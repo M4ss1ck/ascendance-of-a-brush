@@ -103,4 +103,33 @@ describe("makeCurve", () => {
     finishColor(refColor(ref, 4, 6, W), manual, a.palette, settings.colorJitter);
     expect(curve.seed).toBe((manual() * 4294967296) >>> 0);
   });
+
+  // ADR-0009 rule 4: a transparent canvas pixel never stops the stroke. The start pixel's
+  // own reference color differs from the rest, so an opaque canvas that matches the ref reads
+  // as already painted and stops the trace; a transparent one is skipped instead.
+  it("stops on an opaque canvas pixel that matches the ref, not on a transparent one", () => {
+    const a = analysis();
+    const start = (6 * W + 4) * 3;
+    const base = ref.slice();
+    base[start] = 30;
+    base[start + 1] = 50;
+    base[start + 2] = 70;
+    const wide: BrushSettings = { ...settings, tol: 200 };
+    const canvas = (alpha: number) => {
+      const c = new Uint8ClampedArray(W * H * 4);
+      for (let i = 0; i < W * H; i++) {
+        c[i * 4] = ref[i * 3]!;
+        c[i * 4 + 1] = ref[i * 3 + 1]!;
+        c[i * 4 + 2] = ref[i * 3 + 2]!;
+        c[i * 4 + 3] = alpha;
+      }
+      return c;
+    };
+
+    const opaque = makeCurve(4, 6, 8, base, canvas(255), rngFrom(1), a, wide);
+    const clear = makeCurve(4, 6, 8, base, canvas(0), rngFrom(1), a, wide);
+
+    expect(opaque.pts).toEqual([[4, 6]]);
+    expect(clear.pts.length).toBeGreaterThan(1);
+  });
 });
