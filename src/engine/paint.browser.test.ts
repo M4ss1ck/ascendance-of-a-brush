@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { fnv1a } from "../testing/fnv1a.ts";
+import { prototypePaint } from "../testing/prototype.ts";
+import { analyze, type Analysis } from "./analysis.ts";
 import { drawGround, type BrushName, type GroundPlan } from "./brushes.ts";
+import { metricMasks, score } from "./metrics.ts";
 import type {
   PaintReply,
   PaintRequest,
@@ -156,5 +159,80 @@ describe("paint", () => {
 
     expect(r.again).toBe(r.painted);
     expect(r.replayed).toBe(r.painted);
+  });
+});
+
+interface Case {
+  id: string;
+  fixture: Fixture;
+  settings: PaintSettings;
+  brush: BrushName;
+}
+
+const cases = (): Case[] => [
+  { id: "square-dab", fixture: squareAndLine(), settings, brush: "dab" },
+  { id: "square-curve", fixture: squareAndLine(), settings, brush: "curve" },
+  { id: "gradient-dab", fixture: gradient(), settings, brush: "dab" },
+  { id: "gradient-curve", fixture: gradient(), settings, brush: "curve" },
+];
+
+const parityCases = (): Case[] => [
+  ...cases(),
+  {
+    id: "gradient-blurred-palette-curve",
+    fixture: gradient(),
+    settings: { ...settings, ground: "blurred", palette: 4 },
+    brush: "curve",
+  },
+];
+
+// Runs the approved prototype's own `paint` on the same fixture and settings, so the
+// worker's raster and stroke plan are compared with the source of truth, not with a
+// restatement of it. See docs/reference/brush-bench.html and AGENTS.md.
+describe("prototype parity", () => {
+  it.each(parityCases())("$id matches the prototype raster and strokes", async (c) => {
+    const worker = await paintInWorker(c.fixture, c.settings, c.brush);
+    const prototype = await prototypePaint(
+      c.fixture.pixels,
+      c.fixture.W,
+      c.fixture.H,
+      c.settings,
+      c.brush,
+    );
+
+    expect(fnv1a(worker.pixels)).toBe(prototype.hash);
+    expect(JSON.parse(JSON.stringify(worker.plan.strokes))).toEqual(prototype.strokes);
+  });
+});
+
+/** The plan's own ground, drawn alone: "better than bare toned ground" is measurable. */
+function tonedGround(a: Analysis): Uint8ClampedArray {
+  const ctx = new OffscreenCanvas(a.W, a.H).getContext("2d", { willReadFrequently: true })!;
+  drawGround(ctx, { type: "toned", color: a.toned, data: null }, a.W, a.H);
+  return ctx.getImageData(0, 0, a.W, a.H).data;
+}
+
+// Ceilings are the measured painted scores × 1.1, rounded up to one decimal (ADR-0008).
+// Lower is better: the painting must beat the bare toned ground and these drift guards.
+const ceilings: Record<string, { all: number; edge: number; line: number }> = {
+  "square-dab": { all: 21.3, edge: 112.6, line: 72.5 },
+  "square-curve": { all: 20.8, edge: 107.7, line: 70.9 },
+  "gradient-dab": { all: 16.9, edge: 39.0, line: 187.4 },
+  "gradient-curve": { all: 16.8, edge: 41.7, line: 189.5 },
+};
+
+describe("metric thresholds", () => {
+  it.each(cases())("$id beats bare ground and its ceiling", async (c) => {
+    const a = analyze(c.fixture.pixels, c.fixture.W, c.fixture.H, c.settings);
+    const masks = metricMasks(a);
+    const worker = await paintInWorker(c.fixture, c.settings, c.brush);
+    const painted = score(a, masks, worker.pixels);
+    const bare = score(a, masks, tonedGround(a));
+    const ceiling = ceilings[c.id]!;
+
+    for (const key of ["all", "edge", "line"] as const) {
+      expect(painted[key]).toBeLessThan(bare[key]);
+      expect(painted[key]).toBeLessThan(ceiling[key]);
+    }
   });
 });
