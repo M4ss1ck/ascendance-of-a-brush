@@ -48,6 +48,9 @@ export interface Plan {
  * is laid only inside the mask, and a stroke is planned only when its jittered, clamped
  * start point is inside it. Strokes are not clipped, so they may bleed past the outline. A
  * null mask is the whole image and reproduces the prototype exactly.
+ *
+ * `onLayer` is called with each layer index once its strokes are on the canvas. It only
+ * observes the raster, so it cannot change the draw order or the painting.
  */
 export function paint(
   ctx: Ctx2D,
@@ -55,6 +58,7 @@ export function paint(
   s: PaintSettings,
   brush: BrushName,
   mask: Mask | null = null,
+  onLayer?: (layer: number) => void,
 ): Plan {
   const W = a.W,
     H = a.H;
@@ -119,6 +123,7 @@ export function paint(
       drawStroke(ctx, st);
       strokes.push(st);
     }
+    onLayer?.(li);
   }
   return { ground, strokes };
 }
@@ -141,11 +146,33 @@ export interface PaintRequest {
   selection?: Selection;
 }
 
+/** Asks the paint worker to resample an uploaded image to the working size, then paint it whole. */
+export interface PaintImageRequest {
+  kind: "paintImage";
+  /** Transferred, so the worker owns and closes it. */
+  bitmap: ImageBitmap;
+  /** Longest side of the working image, as in ADR-0011. */
+  size: number;
+  settings: PaintSettings;
+  brush: BrushName;
+}
+
 export interface PaintReply {
+  kind: "painted";
   plan: Plan;
   /** The cropped RGBA raster: `crop.w * crop.h * 4` bytes. */
   pixels: Uint8ClampedArray;
   crop: Rect;
+}
+
+/** One layer of a running paint request: its snapshot is the full raster after that layer. */
+export interface LayerProgress {
+  kind: "layer";
+  layer: number;
+  layers: number;
+  radius: number;
+  /** Transferred. Snapshotting the canvas never seals the painting itself. */
+  snapshot: ImageBitmap;
 }
 
 /** Asks the paint worker to replay a stored plan; it replies with the raster. */
