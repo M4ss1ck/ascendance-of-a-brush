@@ -13,8 +13,11 @@
   --color-wall-dark: #1b2d5c;
   --color-wall-light: #5f7fc4;
   --color-parchment: #f2e8cf;
+  --color-parchment-dark: #e2d3ad;
   --color-ink: #22190f;
+  --color-sepia: #6b5636;
   --color-gold: #c9a24a;
+  --color-gold-light: #e8cf88;
 }
 
 @layer base {
@@ -30,5 +33,407 @@
       repeating-linear-gradient(0deg, #ffffff07 0 1px, transparent 1px 3px),
       repeating-linear-gradient(90deg, #00000014 0 1px, transparent 1px 3px);
     color: var(--color-parchment);
+  }
+}
+
+/* The approved Scriptorium pieces (issue #6). The ornament, seal, frame and ledge keep
+   their prototype shapes; colours come from the theme tokens above. */
+@layer components {
+  /* A gold-tooled frame around the painting. */
+  .frame {
+    position: relative;
+    display: block;
+    padding: 12px;
+    line-height: 0;
+    background: var(--color-wall-dark);
+    box-shadow:
+      inset 0 0 0 1px var(--color-gold),
+      inset 0 0 0 5px var(--color-wall-dark),
+      inset 0 0 0 6px #c9a24a99,
+      0 30px 60px -24px #000d,
+      0 0 0 1px #0008;
+  }
+
+  .frame canvas {
+    display: block;
+  }
+
+  .orn {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    color: var(--color-gold);
+  }
+
+  .orn svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .orn-tl {
+    top: -7px;
+    left: -7px;
+  }
+
+  .orn-tr {
+    top: -7px;
+    right: -7px;
+  }
+
+  .orn-bl {
+    bottom: -7px;
+    left: -7px;
+  }
+
+  .orn-br {
+    right: -7px;
+    bottom: -7px;
+  }
+
+  /* Parchment board the tools sit on, with a gilt top rule. */
+  .ledge {
+    background:
+      radial-gradient(60% 140% at 20% 0%, #ffffff66 0, #0000 60%),
+      radial-gradient(30% 90% at 85% 100%, #a07a3a22, #0000), var(--color-parchment);
+    box-shadow:
+      0 -1px 0 var(--color-gold),
+      0 -4px 0 var(--color-wall-dark),
+      0 -5px 0 #c9a24a88,
+      0 -18px 30px -12px #000a;
+  }
+
+  .ledge::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.5;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3'/%3E%3CfeColorMatrix values='0 0 0 0 .45 0 0 0 0 .33 0 0 0 0 .15 0 0 0 .18 0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .band {
+    width: 1px;
+    align-self: stretch;
+    background: linear-gradient(#0000, #6b563655, #0000);
+  }
+
+  /* A brush pick: the engine's own swatch, and a ribbon on the chosen one. */
+  .pick {
+    position: relative;
+    display: grid;
+    justify-items: center;
+    gap: 5px;
+    padding: 4px;
+    border: 0;
+    background: none;
+    color: var(--color-ink);
+    font: italic 15px/1 var(--font-sans);
+    cursor: pointer;
+  }
+
+  .pick canvas {
+    display: block;
+    box-shadow:
+      0 0 0 1px #6b563655,
+      0 3px 6px #0003;
+    transition: transform 0.15s;
+  }
+
+  .pick[aria-pressed="true"] canvas {
+    box-shadow:
+      0 0 0 1px var(--color-gold),
+      0 0 0 3px var(--color-wall),
+      0 4px 10px #0004;
+    transform: translateY(-2px);
+  }
+
+  .pick[aria-pressed="true"]::after {
+    content: "";
+    position: absolute;
+    top: -18px;
+    right: 10px;
+    width: 10px;
+    height: 26px;
+    background: var(--color-wall);
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 75%, 0 100%);
+  }
+
+  .pick[aria-pressed="true"] span {
+    color: var(--color-wall);
+  }
+
+  .pick:focus-visible,
+  .btn:focus-visible,
+  .seal:focus-within {
+    outline: 2px solid var(--color-wall);
+    outline-offset: 3px;
+  }
+
+  /* The seed, stamped in blue wax. */
+  .seal {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 62px;
+    height: 62px;
+    background: radial-gradient(
+      circle at 38% 32%,
+      var(--color-wall-light),
+      var(--color-wall) 45%,
+      var(--color-wall-dark) 100%
+    );
+    border-radius: 52% 48% 50% 50% / 48% 52% 49% 51%;
+    box-shadow:
+      0 0 0 3px #2c4a8f55,
+      0 3px 6px #0005,
+      inset 0 -3px 6px #0005;
+  }
+
+  .seal::before {
+    content: "";
+    position: absolute;
+    inset: 8px;
+    border-radius: 50%;
+    box-shadow:
+      inset 0 0 0 1px #ffffff40,
+      inset 0 1px 2px #0006;
+  }
+
+  .seal input {
+    position: relative;
+    width: 46px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-gold-light);
+    font: 24px/1 var(--font-sans);
+    text-align: center;
+    text-shadow: 0 1px 0 #0008;
+    appearance: textfield;
+  }
+
+  .seal input::-webkit-outer-spin-button,
+  .seal input::-webkit-inner-spin-button {
+    appearance: none;
+    margin: 0;
+  }
+
+  .btn {
+    padding: 6px 2px;
+    border: 0;
+    border-bottom: 1px solid #2c4a8f66;
+    background: none;
+    color: var(--color-wall-dark);
+    font: 700 14px/1 var(--font-sans);
+    cursor: pointer;
+  }
+
+  .btn:hover {
+    border-bottom-color: var(--color-wall);
+  }
+
+  /* The advanced drawer: parchment, collapsed until opened. */
+  .drawer {
+    display: none;
+    min-width: 0;
+    color: var(--color-ink);
+    background: var(--color-parchment-dark);
+    border-top: 1px solid #c9a24a88;
+  }
+
+  .drawer.open {
+    display: block;
+    max-height: min(540px, 45dvh);
+    padding: 18px 28px 22px;
+    overflow: auto;
+  }
+
+  .drawer-inner {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    align-items: start;
+    gap: 16px 28px;
+  }
+
+  .drawer h2 {
+    display: flex;
+    grid-column: 1 / -1;
+    align-items: center;
+    gap: 12px;
+    margin: 0;
+    font: 700 18px/1 var(--font-sans);
+  }
+
+  .drawer h2::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, var(--color-gold), #0000);
+  }
+
+  .drawer-close {
+    display: none;
+  }
+
+  /* One settings field: a label and value line over an input. */
+  .field {
+    display: grid;
+    align-content: start;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .field-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .field-head b {
+    font: 700 14px/1 var(--font-sans);
+  }
+
+  .field output {
+    color: var(--color-wall);
+    font: 14px/1 var(--font-sans);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .field input[type="range"] {
+    width: 100%;
+    height: 20px;
+    background: transparent;
+    appearance: none;
+  }
+
+  .field input[type="range"]::-webkit-slider-runnable-track {
+    height: 2px;
+    background: linear-gradient(90deg, var(--color-wall) var(--p, 50%), #6b563640 var(--p, 50%));
+  }
+
+  .field input[type="range"]::-webkit-slider-thumb {
+    width: 12px;
+    height: 12px;
+    margin-top: -5px;
+    background: var(--color-gold);
+    box-shadow: 0 0 0 1px var(--color-wall-dark);
+    transform: rotate(45deg);
+    appearance: none;
+  }
+
+  .field input[type="range"]::-moz-range-track {
+    height: 2px;
+    background: #6b563640;
+  }
+
+  .field input[type="range"]::-moz-range-progress {
+    height: 2px;
+    background: var(--color-wall);
+  }
+
+  .field input[type="range"]::-moz-range-thumb {
+    width: 12px;
+    height: 12px;
+    border: 0;
+    border-radius: 0;
+    background: var(--color-gold);
+    box-shadow: 0 0 0 1px var(--color-wall-dark);
+    transform: rotate(45deg);
+  }
+
+  .field input[type="range"]:focus-visible {
+    outline: 2px solid var(--color-wall);
+    outline-offset: 2px;
+  }
+
+  .seg {
+    display: flex;
+    gap: 4px;
+  }
+
+  .seg button {
+    flex: 1;
+    padding: 6px 0;
+    border: 0;
+    background: none;
+    color: var(--color-ink);
+    font: 15px/1 var(--font-sans);
+    cursor: pointer;
+    box-shadow: inset 0 0 0 1px #6b563655;
+  }
+
+  .seg button[aria-pressed="true"] {
+    color: var(--color-parchment);
+    background: var(--color-wall);
+    box-shadow: inset 0 0 0 1px var(--color-gold);
+  }
+
+  .seg button:focus-visible,
+  .grounds button:focus-visible {
+    outline: 2px solid var(--color-wall);
+    outline-offset: 2px;
+  }
+
+  .grounds {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .grounds button {
+    display: grid;
+    min-width: 0;
+    justify-items: center;
+    gap: 5px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-ink);
+    font: italic 14px/1 var(--font-sans);
+    text-align: center;
+    overflow-wrap: anywhere;
+    cursor: pointer;
+  }
+
+  .grounds i {
+    width: 48px;
+    height: 32px;
+    box-shadow: 0 0 0 1px #6b563655;
+  }
+
+  .grounds button[aria-pressed="true"] i {
+    box-shadow:
+      0 0 0 1px var(--color-gold),
+      0 0 0 3px var(--color-wall);
+  }
+
+  /* Phones: the drawer becomes a full-height sheet; the ledge keeps wrapping. */
+  @media (max-width: 639px) {
+    .drawer {
+      position: fixed;
+      inset: 0;
+      z-index: 30;
+      display: none;
+      padding: 20px 16px calc(24px + env(safe-area-inset-bottom));
+      overflow: auto;
+      background: var(--color-parchment);
+    }
+
+    .drawer.open {
+      display: block;
+      max-height: none;
+      padding: 20px 16px calc(24px + env(safe-area-inset-bottom));
+    }
+
+    .drawer-inner {
+      grid-template-columns: 1fr;
+    }
+
+    .drawer-close {
+      display: inline-flex;
+      margin-left: auto;
+    }
   }
 }
