@@ -73,7 +73,7 @@ export function buildAdvanced(
 ): HTMLElement {
   const drawer = document.createElement("aside");
   drawer.id = "advanced-drawer";
-  drawer.className = tw`drawer`;
+  drawer.className = tw`drawer row-start-2`;
   drawer.setAttribute("aria-label", "Advanced settings");
 
   const inner = document.createElement("div");

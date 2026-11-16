@@ -11,7 +11,7 @@ import { workingSize } from "../engine/resample.ts";
 import { buildAdvanced } from "./advanced.ts";
 import { createPages } from "./pages.ts";
 import { createRepainter } from "./repaint.ts";
-import { parseSettings, writeSettings, type Settings } from "./settings.ts";
+import { anotherSeed, parseSettings, writeSettings, type Settings } from "./settings.ts";
 import { drawSwatch } from "./swatch.ts";
 import { tw } from "./tw.ts";
 import { createWipe } from "./wipe.ts";
@@ -146,7 +146,7 @@ export function mountApp(root: HTMLElement): void {
   another.type = "button";
   another.className = "btn";
   another.textContent = "Another";
-  another.addEventListener("click", () => setSettings({ seed: settings.seed + 1 }));
+  another.addEventListener("click", () => setSettings({ seed: anotherSeed(settings.seed) }));
 
   const status = document.createElement("span");
   status.className = tw`min-w-32 text-[15px] text-sepia italic`;
@@ -187,7 +187,7 @@ export function mountApp(root: HTMLElement): void {
   spacer.className = tw`flex-1`;
 
   const ledge = document.createElement("footer");
-  ledge.className = tw`ledge relative z-10 flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 text-ink sm:gap-x-6 sm:px-6 sm:py-4`;
+  ledge.className = tw`ledge relative z-10 row-start-3 flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3 text-ink sm:gap-x-6 sm:px-6 sm:py-4`;
   ledge.append(
     brushGroup,
     band(),
@@ -204,7 +204,7 @@ export function mountApp(root: HTMLElement): void {
 
   const app = document.createElement("div");
   app.className = tw`grid h-dvh grid-cols-[minmax(0,1fr)] grid-rows-[minmax(0,1fr)_auto_auto] overflow-hidden`;
-  app.append(wall, drawer, ledge);
+  app.append(wall, ledge, drawer);
   root.replaceChildren(app);
 
   /** Marks the status as a normal update or as the inline error alert. */
@@ -218,15 +218,28 @@ export function mountApp(root: HTMLElement): void {
     status.textContent = text;
   }
 
+  /** The first drawer control that is actually shown; the Close button is phone-only. */
+  function firstControl(): HTMLElement | null {
+    for (const control of drawer.querySelectorAll<HTMLElement>("button, input")) {
+      if (control.offsetParent !== null) return control;
+    }
+    return null;
+  }
+
   function setDrawer(open: boolean): void {
     drawerOpen = open;
     drawer.classList.toggle("open", open);
     advancedButton.setAttribute("aria-expanded", String(open));
+    if (open) firstControl()?.focus();
+    else advancedButton.focus();
   }
 
   advancedButton.addEventListener("click", () => setDrawer(!drawerOpen));
   const closeButton = drawer.querySelector<HTMLButtonElement>("[data-close]");
   if (closeButton) closeButton.addEventListener("click", () => setDrawer(false));
+  document.addEventListener("keydown", (event) => {
+    if (drawerOpen && event.key === "Escape") setDrawer(false);
+  });
 
   /** Fits the canvas in the free wall space, up or down, keeping its aspect. */
   function fit(): void {
@@ -265,7 +278,7 @@ export function mountApp(root: HTMLElement): void {
     if (!source) return;
     generation += 1;
     resetLayers();
-    setWorkingSize(settings.size);
+    // The backing size only changes in showPainted, so the last painting stays up meanwhile.
     // The first layer is already being painted, so its page pulses from the start.
     pages.update(layers, false);
     setStatus("Painting…");

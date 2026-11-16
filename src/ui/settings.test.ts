@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULTS, parseSettings, writeSettings, type Settings } from "./settings.ts";
+import { anotherSeed, DEFAULTS, parseSettings, writeSettings, type Settings } from "./settings.ts";
 
 describe("writeSettings", () => {
   it("writes nothing for the defaults", () => {
@@ -84,5 +84,16 @@ describe("parseSettings", () => {
     const s = parseSettings(`?${bad}&${key}=${value}`);
     expect(s[key]).toBe(value);
     expect({ ...s, [key]: DEFAULTS[key] }).toEqual(DEFAULTS);
+  });
+});
+
+describe("anotherSeed", () => {
+  it("adds 1", () => {
+    expect(anotherSeed(7)).toBe(8);
+  });
+
+  it("never writes a seed the URL parser refuses", () => {
+    const seed = anotherSeed(Number.MAX_SAFE_INTEGER);
+    expect(parseSettings(writeSettings({ ...DEFAULTS, seed })).seed).toBe(seed);
   });
 });

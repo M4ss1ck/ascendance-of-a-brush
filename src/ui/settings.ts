@@ -113,3 +113,12 @@ export function writeSettings(s: Settings): string {
   for (const k of PARAMS) if (s[k] !== DEFAULTS[k]) params.set(k, String(s[k]));
   return params.toString();
 }
+
+/**
+ * The next seed: one on, or 0 rather than a value past `Number.MAX_SAFE_INTEGER`, which
+ * `parseSettings` would refuse and drop from the URL.
+ */
+export function anotherSeed(seed: number): number {
+  const next = seed + 1;
+  return Number.isSafeInteger(next) ? next : 0;
+}

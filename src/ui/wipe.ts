@@ -1,9 +1,9 @@
 /**
  * The compare wipe (issue #6): the uploaded source over the painting, split by a vertical
- * gold handle. Left of the handle is the source, right of it the painting. Dragging the
- * handle with the pointer, or the arrow keys and Home/End when it has focus, moves the split.
- * It starts hidden at 0, so a fresh painting is shown in full. Rewritten from the prototype's
- * variant D (`vd-wipe`).
+ * gold handle. Left of the handle is the source, right of it the painting. Pressing anywhere
+ * on the painting moves the split there and drags it; the arrow keys and Home/End do the same
+ * when the handle has focus. It starts hidden at 0, so a fresh painting is shown in full.
+ * Rewritten from the prototype's variant D (`vd-wipe`).
  */
 
 /** One keyboard or button press moves the split this far. */
@@ -27,6 +27,7 @@ export function createWipe(painting: HTMLCanvasElement): Wipe {
   source.className = "wipe-source";
   source.setAttribute("aria-hidden", "true");
 
+  // Full-area layer: the gold hairline is drawn inside it, at the split.
   const handle = document.createElement("div");
   handle.className = "wipe-handle";
   handle.setAttribute("role", "slider");
@@ -52,22 +53,30 @@ export function createWipe(painting: HTMLCanvasElement): Wipe {
   function setCut(next: number): void {
     cut = Math.min(1, Math.max(0, next));
     source.style.clipPath = `inset(0 ${100 - cut * 100}% 0 0)`;
-    handle.style.left = `${cut * 100}%`;
+    handle.style.setProperty("--cut", `${cut * 100}%`);
     handle.setAttribute("aria-valuenow", String(Math.round(cut * 100)));
+    handle.setAttribute("aria-valuetext", `${Math.round(cut * 100)}% source`);
   }
   setCut(0);
 
   let dragging = false;
 
+  /** Moves the split to the pointer's column within the painting. */
+  function cutAt(clientX: number): void {
+    const rect = painting.getBoundingClientRect();
+    if (rect.width) setCut((clientX - rect.left) / rect.width);
+  }
+
+  // The handle spans the painting, so a press anywhere on it takes the split and drags.
   handle.addEventListener("pointerdown", (event) => {
     dragging = true;
     handle.setPointerCapture(event.pointerId);
     handle.focus();
+    cutAt(event.clientX);
   });
   handle.addEventListener("pointermove", (event) => {
     if (!dragging) return;
-    const rect = painting.getBoundingClientRect();
-    if (rect.width) setCut((event.clientX - rect.left) / rect.width);
+    cutAt(event.clientX);
   });
   for (const end of ["pointerup", "pointercancel", "lostpointercapture"]) {
     handle.addEventListener(end, () => {
