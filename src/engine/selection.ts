@@ -18,6 +18,14 @@ export type Selection =
 /** One byte per pixel, in row-major order: 1 = inside, 0 = outside. */
 export type Mask = Uint8Array;
 
+/** A rectangle in working-canvas pixels. */
+export interface Rect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 /**
  * The pixel set a selection covers, testing each pixel at its centre.
  *
@@ -52,4 +60,28 @@ export function toMask(sel: Selection, W: number, H: number): Mask | null {
     }
   }
   return mask;
+}
+
+/**
+ * The smallest rect holding every pixel with alpha > 0, or `{x:0,y:0,w:0,h:0}` when none.
+ *
+ * The ground fills the mask and strokes add bleed, so this is the mask's bounds plus any
+ * stroke that painted past it, clamped to the canvas. A whole-image painting gives the full
+ * canvas.
+ */
+export function paintedBounds(pixels: Uint8ClampedArray, W: number, H: number): Rect {
+  let minX = W,
+    minY = H,
+    maxX = -1,
+    maxY = -1;
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++)
+      if (pixels[(y * W + x) * 4 + 3]! > 0) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+  if (maxX < 0) return { x: 0, y: 0, w: 0, h: 0 };
+  return { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
 }

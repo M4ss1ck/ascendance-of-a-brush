@@ -11,6 +11,7 @@ import type {
   ReplayReply,
   ReplayRequest,
 } from "./paint.ts";
+import { toMask, type Mask, type Rect, type Selection } from "./selection.ts";
 
 // Pins the ported layer loop (docs/reference/brush-bench.html lines 478-521) inside the
 // worker from ADR-0010: two runs of the same input must give the same raster, and replaying
@@ -113,8 +114,16 @@ function inWorker<T>(request: PaintRequest | ReplayRequest): Promise<T> {
   });
 }
 
-const paintInWorker = (f: Fixture, s: PaintSettings, brush: BrushName) =>
-  inWorker<PaintReply>({ kind: "paint", pixels: f.pixels, W: f.W, H: f.H, settings: s, brush });
+const paintInWorker = (f: Fixture, s: PaintSettings, brush: BrushName, selection?: Selection) =>
+  inWorker<PaintReply>({
+    kind: "paint",
+    pixels: f.pixels,
+    W: f.W,
+    H: f.H,
+    settings: s,
+    brush,
+    ...(selection ? { selection } : {}),
+  });
 
 const replayInWorker = (request: ReplayRequest) => inWorker<ReplayReply>(request);
 
@@ -267,5 +276,86 @@ describe("metric thresholds", () => {
       expect(painted[key]).toBeLessThan(bare[key]);
       expect(painted[key]).toBeLessThan(ceiling[key]);
     }
+  });
+});
+
+/** The mask's own bounds, scanned the way `toMask` tests pixel centres. */
+function maskBounds(mask: Mask, W: number, H: number): Rect {
+  let minX = W,
+    minY = H,
+    maxX = -1,
+    maxY = -1;
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++)
+      if (mask[y * W + x]) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+  return { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
+}
+
+// ADR-0009: the reply carries the painted object only, cropped to everything painted. A
+// whole-image painting keeps the full canvas, so its raster is byte-identical to before.
+describe("selection", () => {
+  // An ellipse over the square: smaller than the canvas, with room for strokes to bleed.
+  const ellipse: Selection = { kind: "ellipse", cx: 15, cy: 15, rx: 7, ry: 6 };
+  const brushes = ["dab", "curve"] as const;
+
+  it.each(brushes)("%s crops a whole-image painting to the full canvas", async (brush) => {
+    const f = squareAndLine();
+    const reply = await paintInWorker(f, settings, brush);
+
+    expect(reply.crop).toEqual({ x: 0, y: 0, w: f.W, h: f.H });
+    expect(reply.pixels.length).toBe(f.W * f.H * 4);
+  });
+
+  it.each(brushes)("%s crops a masked painting to the mask plus bleed", async (brush) => {
+    const f = squareAndLine();
+    const reply = await paintInWorker(f, settings, brush, ellipse);
+    const bounds = maskBounds(toMask(ellipse, f.W, f.H)!, f.W, f.H);
+    const { x, y, w, h } = reply.crop;
+
+    // The ground fills the mask, so its bounds are contained; strokes may only widen it.
+    expect(x).toBeLessThanOrEqual(bounds.x);
+    expect(y).toBeLessThanOrEqual(bounds.y);
+    expect(x + w).toBeGreaterThanOrEqual(bounds.x + bounds.w);
+    expect(y + h).toBeGreaterThanOrEqual(bounds.y + bounds.h);
+    // Clamped to the working canvas, and the raster matches the crop.
+    expect(x).toBeGreaterThanOrEqual(0);
+    expect(y).toBeGreaterThanOrEqual(0);
+    expect(x + w).toBeLessThanOrEqual(f.W);
+    expect(y + h).toBeLessThanOrEqual(f.H);
+    expect(reply.pixels.length).toBe(w * h * 4);
+  });
+
+  it.each(brushes)("%s replays a masked plan to the same crop and pixels", async (brush) => {
+    const f = squareAndLine();
+    const reply = await paintInWorker(f, settings, brush, ellipse);
+    const replayed = await replayInWorker({ kind: "replay", plan: reply.plan, W: f.W, H: f.H });
+
+    expect(replayed.crop).toEqual(reply.crop);
+    expect(fnv1a(replayed.pixels)).toBe(fnv1a(reply.pixels));
+  });
+
+  // Pinned fixed-seed hashes of the cropped pixels (ADR-0008).
+  it.each([
+    ["dab", "50719762"],
+    ["curve", "53a625b0"],
+  ] as const)("%s pins the cropped pixel hash", async (brush, hash) => {
+    const f = squareAndLine();
+    const reply = await paintInWorker(f, settings, brush, ellipse);
+
+    expect(fnv1a(reply.pixels)).toBe(hash);
+  });
+
+  it.each(brushes)("%s replies a zero crop for an empty selection", async (brush) => {
+    const f = squareAndLine();
+    const empty: Selection = { kind: "polygon", pts: [] };
+    const reply = await paintInWorker(f, settings, brush, empty);
+
+    expect(reply.crop).toEqual({ x: 0, y: 0, w: 0, h: 0 });
+    expect(reply.pixels.length).toBe(0);
   });
 });

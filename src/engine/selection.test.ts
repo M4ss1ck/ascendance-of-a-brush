@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { toMask, type Mask, type Selection } from "./selection.ts";
+import { toMask, paintedBounds, type Mask, type Selection } from "./selection.ts";
 
 /** Mask as rows of "1"/"0", for readable expectations. */
 const rows = (mask: Mask, W: number): string[] => {
@@ -90,5 +90,42 @@ describe("toMask", () => {
     const mask = maskOf(sel, 4, 4);
     expect(mask.length).toBe(16);
     expect(mask.every((v) => v === 0)).toBe(true);
+  });
+});
+
+/** An RGBA raster of transparent pixels with the given ones made opaque. */
+const raster = (W: number, H: number, painted: [number, number][]): Uint8ClampedArray => {
+  const px = new Uint8ClampedArray(W * H * 4);
+  for (const [x, y] of painted) px[(y * W + x) * 4 + 3] = 255;
+  return px;
+};
+
+describe("paintedBounds", () => {
+  it("returns a zero rect when nothing is painted", () => {
+    expect(paintedBounds(raster(4, 3, []), 4, 3)).toEqual({ x: 0, y: 0, w: 0, h: 0 });
+  });
+
+  it("returns a single pixel as a 1x1 rect", () => {
+    expect(paintedBounds(raster(5, 4, [[2, 3]]), 5, 4)).toEqual({ x: 2, y: 3, w: 1, h: 1 });
+  });
+
+  it("spans scattered pixels", () => {
+    const px = raster(6, 5, [
+      [1, 1],
+      [4, 2],
+      [2, 4],
+    ]);
+    expect(paintedBounds(px, 6, 5)).toEqual({ x: 1, y: 1, w: 4, h: 4 });
+  });
+
+  it("gives the full canvas when every pixel is opaque", () => {
+    const px = new Uint8ClampedArray(4 * 3 * 4).fill(255);
+    expect(paintedBounds(px, 4, 3)).toEqual({ x: 0, y: 0, w: 4, h: 3 });
+  });
+
+  it("counts alpha 1 as painted", () => {
+    const px = new Uint8ClampedArray(4 * 4 * 4);
+    px[(2 * 4 + 3) * 4 + 3] = 1;
+    expect(paintedBounds(px, 4, 4)).toEqual({ x: 3, y: 2, w: 1, h: 1 });
   });
 });

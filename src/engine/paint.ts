@@ -24,7 +24,7 @@ import {
 } from "./brushes.ts";
 import { clamp } from "./color.ts";
 import { rngFrom } from "./prng.ts";
-import type { Mask } from "./selection.ts";
+import type { Mask, Rect, Selection } from "./selection.ts";
 
 export interface PaintSettings extends AnalysisSettings, BrushSettings {
   threshold: number;
@@ -137,11 +137,15 @@ export interface PaintRequest {
   H: number;
   settings: PaintSettings;
   brush: BrushName;
+  /** Absent means the whole image. */
+  selection?: Selection;
 }
 
 export interface PaintReply {
   plan: Plan;
+  /** The cropped RGBA raster: `crop.w * crop.h * 4` bytes. */
   pixels: Uint8ClampedArray;
+  crop: Rect;
 }
 
 /** Asks the paint worker to replay a stored plan; it replies with the raster. */
@@ -153,5 +157,7 @@ export interface ReplayRequest {
 }
 
 export interface ReplayReply {
+  /** The cropped RGBA raster: `crop.w * crop.h * 4` bytes. */
   pixels: Uint8ClampedArray;
+  crop: Rect;
 }
