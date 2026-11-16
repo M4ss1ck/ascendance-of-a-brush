@@ -132,7 +132,7 @@ export class Session {
   /** One snapshot per finished layer, for variants that show the stack. */
   snapshots: HTMLCanvasElement[] = [];
 
-  private drawable: (CanvasImageSource & { width: number; height: number }) | null = null;
+  drawable: (CanvasImageSource & { width: number; height: number }) | null = null;
   private worker: Worker | null = null;
   private runId = 0;
   private timer = 0;
