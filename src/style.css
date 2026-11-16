@@ -1,1 +1,34 @@
 @import "tailwindcss";
+@import "@fontsource/mononoki/400.css";
+@import "@fontsource/mononoki/700.css";
+@import "@fontsource/metal/400.css";
+
+/* The one fixed theme (ADR-0017): a bookcloth-blue wall, gilt tooling, parchment and ink.
+   The app ignores the system dark mode, so the palette is declared once and never varied. */
+@theme {
+  --font-sans: "Mononoki", ui-monospace, monospace;
+  --font-metal: "Metal", serif;
+
+  --color-wall: #2c4a8f;
+  --color-wall-dark: #1b2d5c;
+  --color-wall-light: #5f7fc4;
+  --color-parchment: #f2e8cf;
+  --color-ink: #22190f;
+  --color-gold: #c9a24a;
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  body {
+    /* Woven bookcloth: a soft vignette over a warp and weft of faint threads. */
+    background-color: var(--color-wall-dark);
+    background-image:
+      radial-gradient(120% 90% at 50% 40%, transparent 40%, #0a1230aa),
+      repeating-linear-gradient(0deg, #ffffff07 0 1px, transparent 1px 3px),
+      repeating-linear-gradient(90deg, #00000014 0 1px, transparent 1px 3px);
+    color: var(--color-parchment);
+  }
+}
