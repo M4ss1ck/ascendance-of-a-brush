@@ -24,6 +24,7 @@ import {
 } from "./brushes.ts";
 import { clamp } from "./color.ts";
 import { rngFrom } from "./prng.ts";
+import type { Mask } from "./selection.ts";
 
 export interface PaintSettings extends AnalysisSettings, BrushSettings {
   threshold: number;
@@ -42,11 +43,23 @@ export interface Plan {
  * the grid, so a stroke's color and the curve's stop rule see the earlier layers. The two
  * jitter draws happen for every cell, before the threshold test, even when the cell is
  * skipped; the shuffle reuses the same layer PRNG.
+ *
+ * With a `mask` (ADR-0009) a cell's error is averaged over its mask pixels only, the ground
+ * is laid only inside the mask, and a stroke is planned only when its jittered, clamped
+ * start point is inside it. Strokes are not clipped, so they may bleed past the outline. A
+ * null mask is the whole image and reproduces the prototype exactly.
  */
-export function paint(ctx: Ctx2D, a: Analysis, s: PaintSettings, brush: BrushName): Plan {
+export function paint(
+  ctx: Ctx2D,
+  a: Analysis,
+  s: PaintSettings,
+  brush: BrushName,
+  mask: Mask | null = null,
+): Plan {
   const W = a.W,
     H = a.H;
   const ground: GroundPlan = { type: s.ground, color: a.toned, data: a.ground };
+  if (mask) ground.mask = mask;
   drawGround(ctx, ground, W, H);
   const strokes: Stroke[] = [];
   for (let li = 0; li < a.radii.length; li++) {
@@ -68,6 +81,7 @@ export function paint(ctx: Ctx2D, a: Analysis, s: PaintSettings, brush: BrushNam
         for (let y = gy; y < ey; y++)
           for (let x = gx; x < ex; x++) {
             const i = y * W + x;
+            if (mask && !mask[i]) continue;
             const e = Math.hypot(
               ref[i * 3]! - canv[i * 4]!,
               ref[i * 3 + 1]! - canv[i * 4 + 1]!,
@@ -83,20 +97,17 @@ export function paint(ctx: Ctx2D, a: Analysis, s: PaintSettings, brush: BrushNam
           }
         const jx = (rng() - 0.5) * s.jitter * grid,
           jy = (rng() - 0.5) * s.jitter * grid;
-        if (li === 0 || sum / n > s.threshold) {
+        const sx = clamp(mx + jx, 0, W - 1),
+          sy = clamp(my + jy, 0, H - 1);
+        if (
+          n > 0 &&
+          (li === 0 || sum / n > s.threshold) &&
+          (!mask || mask[(sy | 0) * W + (sx | 0)])
+        ) {
           ls.push(
             brush === "dab"
-              ? makeDab(clamp(mx + jx, 0, W - 1), clamp(my + jy, 0, H - 1), R, ref, canv, rng, a, s)
-              : makeCurve(
-                  clamp(mx + jx, 0, W - 1),
-                  clamp(my + jy, 0, H - 1),
-                  R,
-                  ref,
-                  canv,
-                  rng,
-                  a,
-                  s,
-                ),
+              ? makeDab(sx, sy, R, ref, canv, rng, a, s)
+              : makeCurve(sx, sy, R, ref, canv, rng, a, s),
           );
         }
       }
