@@ -1,0 +1,26 @@
+# deps and build output
+node_modules
+dist
+dist-ssr
+*.local
+coverage
+
+# test artifacts
+__screenshots__
+.vitest/
+test-results
+
+# env (none used today; keep out of git anyway)
+.env
+.env.*
+
+# editors and OS
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.log
+
+# local-only planning (see AGENTS.md)
+docs/plans/
+.scratch/
