@@ -409,6 +409,156 @@
       0 0 0 3px var(--color-wall);
   }
 
+  /* The compare wipe: the source over the painting, split by a gold handle. */
+  .wipe {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .wipe-source {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* The handle is a wider hit area with a hairline down its middle. */
+  .wipe-handle {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 14px;
+    margin-left: -7px;
+    outline: none;
+    pointer-events: auto;
+    cursor: ew-resize;
+    touch-action: none;
+  }
+
+  .wipe-handle::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    margin-left: -0.75px;
+    border-left: 1.5px solid var(--color-gold-light);
+  }
+
+  .wipe-handle:focus-visible::before {
+    border-left-width: 3px;
+    box-shadow: 0 0 8px #e8cf88aa;
+  }
+
+  .wipe-label {
+    position: absolute;
+    top: 8px;
+    color: var(--color-parchment);
+    font: 13px/1 var(--font-metal);
+    letter-spacing: 0.04em;
+    text-shadow: 0 1px 3px #000c;
+    white-space: nowrap;
+  }
+
+  .wipe-label.left {
+    right: 12px;
+  }
+
+  .wipe-label.right {
+    left: 12px;
+  }
+
+  /* The layer pages: a strip of snapshots under the frame. */
+  .page {
+    display: grid;
+    flex: none;
+    justify-items: center;
+    gap: 3px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--color-parchment);
+    font-family: var(--font-sans);
+    cursor: pointer;
+  }
+
+  .page canvas {
+    display: block;
+    width: auto;
+    height: 44px;
+    box-shadow:
+      0 0 0 1px #c9a24a66,
+      0 4px 10px #0006;
+  }
+
+  .page:hover canvas,
+  .page:focus-visible canvas {
+    box-shadow:
+      0 0 0 2px var(--color-gold-light),
+      0 4px 10px #0006;
+  }
+
+  .page:focus-visible {
+    outline: none;
+  }
+
+  .page-radius {
+    font: 11px/1 var(--font-metal);
+    letter-spacing: 0.02em;
+    opacity: 0.7;
+  }
+
+  /* The layer being painted: a page-shaped block pulsing gold. */
+  .page-now {
+    display: block;
+    flex: none;
+    background: var(--color-wall-dark);
+    box-shadow: 0 0 0 1px #c9a24a66;
+    animation: page-pulse 1s ease-in-out infinite alternate;
+  }
+
+  @keyframes page-pulse {
+    to {
+      box-shadow:
+        0 0 0 1px var(--color-gold),
+        0 0 14px #c9a24a66;
+    }
+  }
+
+  /* The reveal: a hovered or focused snapshot over the painting, tagged. */
+  .reveal {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .reveal canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .reveal-tag {
+    position: absolute;
+    top: 10px;
+    left: 12px;
+    padding: 4px 7px;
+    background: #121e40cc;
+    color: var(--color-gold-light);
+    font: 14px/1 var(--font-metal);
+    letter-spacing: 0.04em;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .page-now {
+      box-shadow: 0 0 0 1px var(--color-gold);
+      animation: none;
+    }
+  }
+
   /* Phones: the drawer becomes a full-height sheet; the ledge keeps wrapping. */
   @media (max-width: 639px) {
     .drawer {

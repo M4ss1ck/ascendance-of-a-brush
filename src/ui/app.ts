@@ -1,18 +1,20 @@
 /**
  * The app shell (issue #6): the bookcloth wall with its gilt frame, the parchment ledge and
  * the Advanced drawer. The source image is decoded once and cloned per paint; the worker
- * replies with a snapshot per layer (kept for the layer strip that comes later) and the
- * finished raster, which is shown at 1:1.
+ * replies with a snapshot per layer, shown in the strip under the frame, and the finished
+ * raster, which is shown at 1:1. The frame carries the compare wipe.
  */
 
 import type { BrushName } from "../engine/brushes.ts";
 import type { LayerProgress, PaintImageRequest, PaintReply } from "../engine/paint.ts";
 import { workingSize } from "../engine/resample.ts";
 import { buildAdvanced } from "./advanced.ts";
+import { createPages } from "./pages.ts";
 import { createRepainter } from "./repaint.ts";
 import { parseSettings, writeSettings, type Settings } from "./settings.ts";
 import { drawSwatch } from "./swatch.ts";
 import { tw } from "./tw.ts";
+import { createWipe } from "./wipe.ts";
 
 const ROMAN = ["I", "II", "III", "IV", "V"] as const;
 const PICK_W = 92;
@@ -43,17 +45,25 @@ export function mountApp(root: HTMLElement): void {
   let settings = parseSettings(location.search);
   let source: ImageBitmap | null = null;
   let generation = 0;
-  /** Every layer of the current paint, kept for the layer strip in a later unit. */
+  /** Every layer of the current paint, for the layer strip and its reveal. */
   let layers: LayerProgress[] = [];
   let drawerOpen = false;
 
   const painting = document.createElement("canvas");
   painting.className = tw`block`;
 
+  const wipe = createWipe(painting);
+  const pages = createPages(painting);
+
+  /** The painting's box: the wipe and the layer reveal overlay sit exactly on it. */
+  const canvasBox = document.createElement("div");
+  canvasBox.className = tw`relative`;
+  canvasBox.append(painting, wipe.element, pages.overlay);
+
   const frame = document.createElement("figure");
   frame.className = "frame";
   frame.hidden = true;
-  frame.append(painting);
+  frame.append(canvasBox);
   for (const corner of ["orn-tl", "orn-tr", "orn-bl", "orn-br"]) {
     const ornament = document.createElement("span");
     ornament.className = `orn ${corner}`;
@@ -67,7 +77,7 @@ export function mountApp(root: HTMLElement): void {
 
   const stage = document.createElement("div");
   stage.className = tw`relative w-fit max-w-full pt-[22px]`;
-  stage.append(frame, sourceLine);
+  stage.append(frame, pages.element, sourceLine);
 
   const holder = document.createElement("div");
   holder.className = tw`grid h-full min-h-0 w-full min-w-0 place-items-center`;
@@ -224,7 +234,7 @@ export function mountApp(root: HTMLElement): void {
     const height = painting.height;
     if (!width || !height || frame.hidden) return;
     const availableW = holder.clientWidth - FRAME_INSET;
-    const availableH = holder.clientHeight - FRAME_INSET - LINE_SPACE;
+    const availableH = holder.clientHeight - FRAME_INSET - LINE_SPACE - pages.element.offsetHeight;
     if (availableW <= 0 || availableH <= 0) return;
     const scale = Math.min(availableW / width, availableH / height);
     painting.style.width = `${Math.max(1, Math.floor(width * scale))}px`;
@@ -246,6 +256,7 @@ export function mountApp(root: HTMLElement): void {
   }
 
   function resetLayers(): void {
+    pages.clear();
     for (const layer of layers) layer.snapshot.close();
     layers = [];
   }
@@ -255,6 +266,8 @@ export function mountApp(root: HTMLElement): void {
     generation += 1;
     resetLayers();
     setWorkingSize(settings.size);
+    // The first layer is already being painted, so its page pulses from the start.
+    pages.update(layers, false);
     setStatus("Painting…");
     repainter.request({ generation, settings });
   }
@@ -274,11 +287,13 @@ export function mountApp(root: HTMLElement): void {
       }
       if (message.kind === "layer") {
         layers.push(message);
+        pages.update(layers, false);
         const index = ROMAN[message.layer] ?? String(message.layer + 1);
         const count = ROMAN[message.layers - 1] ?? String(message.layers);
         setStatus(`Layer ${index} of ${count}…`);
         return;
       }
+      pages.update(layers, true);
       showPainted(message, job);
       setStatus("Finished.");
     });
@@ -322,6 +337,7 @@ export function mountApp(root: HTMLElement): void {
     const pixels = new Uint8ClampedArray(reply.pixels);
     ctx.putImageData(new ImageData(pixels, reply.crop.w, reply.crop.h), reply.crop.x, reply.crop.y);
     fit();
+    wipe.show(current);
   }
 
   function syncLedge(): void {
@@ -352,6 +368,7 @@ export function mountApp(root: HTMLElement): void {
     sourceLine.textContent = `${file.name} · ${bitmap.width} × ${bitmap.height}`;
     sourceLine.hidden = false;
     frame.hidden = false;
+    wipe.reset();
     setWorkingSize(settings.size);
     requestPaint();
   }
