@@ -1,0 +1,146 @@
+/**
+ * The layer planner and its replayer, ported verbatim from docs/reference/brush-bench.html.
+ *
+ * Covers `paint` (lines 478-521) minus the UI concerns (yielding, `renderId`, timing,
+ * stats, score) and `replay` (lines 552-560) minus the animation. The layer loop reads the
+ * canvas as painted by the earlier layers, so planning and rasterizing share one `ctx`
+ * (ADR-0002, ADR-0010).
+ *
+ * Loop order, arithmetic and PRNG draw order are frozen to the prototype; do not "fix"
+ * them. See ADR-0003 for pixel-hash scope.
+ */
+
+import type { Analysis, AnalysisSettings } from "./analysis.ts";
+import {
+  drawGround,
+  drawStroke,
+  makeCurve,
+  makeDab,
+  type BrushName,
+  type BrushSettings,
+  type Ctx2D,
+  type GroundPlan,
+  type Stroke,
+} from "./brushes.ts";
+import { clamp } from "./color.ts";
+import { rngFrom } from "./prng.ts";
+
+export interface PaintSettings extends AnalysisSettings, BrushSettings {
+  threshold: number;
+  jitter: number;
+}
+
+export interface Plan {
+  ground: GroundPlan;
+  strokes: Stroke[];
+}
+
+/**
+ * Plans every layer and paints it onto `ctx`.
+ *
+ * Ported from `paint` (lines 478-521). Each layer reads the canvas back before scanning
+ * the grid, so a stroke's color and the curve's stop rule see the earlier layers. The two
+ * jitter draws happen for every cell, before the threshold test, even when the cell is
+ * skipped; the shuffle reuses the same layer PRNG.
+ */
+export function paint(ctx: Ctx2D, a: Analysis, s: PaintSettings, brush: BrushName): Plan {
+  const W = a.W,
+    H = a.H;
+  const ground: GroundPlan = { type: s.ground, color: a.toned, data: a.ground };
+  drawGround(ctx, ground, W, H);
+  const strokes: Stroke[] = [];
+  for (let li = 0; li < a.radii.length; li++) {
+    const R = a.radii[li]!,
+      ref = a.refs[li]!;
+    const canv = ctx.getImageData(0, 0, W, H).data;
+    const rng = rngFrom(s.seed, li * 1009 + 1);
+    const grid = Math.max(2, Math.round(R));
+    const ls: Stroke[] = [];
+    for (let gy = 0; gy < H; gy += grid)
+      for (let gx = 0; gx < W; gx += grid) {
+        let sum = 0,
+          n = 0,
+          maxE = -1,
+          mx = gx,
+          my = gy;
+        const ey = Math.min(H, gy + grid),
+          ex = Math.min(W, gx + grid);
+        for (let y = gy; y < ey; y++)
+          for (let x = gx; x < ex; x++) {
+            const i = y * W + x;
+            const e = Math.hypot(
+              ref[i * 3]! - canv[i * 4]!,
+              ref[i * 3 + 1]! - canv[i * 4 + 1]!,
+              ref[i * 3 + 2]! - canv[i * 4 + 2]!,
+            );
+            sum += e;
+            n++;
+            if (e > maxE) {
+              maxE = e;
+              mx = x;
+              my = y;
+            }
+          }
+        const jx = (rng() - 0.5) * s.jitter * grid,
+          jy = (rng() - 0.5) * s.jitter * grid;
+        if (li === 0 || sum / n > s.threshold) {
+          ls.push(
+            brush === "dab"
+              ? makeDab(clamp(mx + jx, 0, W - 1), clamp(my + jy, 0, H - 1), R, ref, canv, rng, a, s)
+              : makeCurve(
+                  clamp(mx + jx, 0, W - 1),
+                  clamp(my + jy, 0, H - 1),
+                  R,
+                  ref,
+                  canv,
+                  rng,
+                  a,
+                  s,
+                ),
+          );
+        }
+      }
+    for (let i = ls.length - 1; i > 0; i--) {
+      const j = (rng() * (i + 1)) | 0;
+      [ls[i], ls[j]] = [ls[j]!, ls[i]!];
+    }
+    for (const st of ls) {
+      drawStroke(ctx, st);
+      strokes.push(st);
+    }
+  }
+  return { ground, strokes };
+}
+
+/** Redraws a stored plan from scratch. Ported from `replay` (lines 552-560), minus the animation. */
+export function replay(ctx: Ctx2D, plan: Plan, W: number, H: number): void {
+  drawGround(ctx, plan.ground, W, H);
+  for (const s of plan.strokes) drawStroke(ctx, s);
+}
+
+/** Asks the paint worker to analyze, plan and paint one image; it replies with the plan and its raster. */
+export interface PaintRequest {
+  kind: "paint";
+  pixels: Uint8ClampedArray;
+  W: number;
+  H: number;
+  settings: PaintSettings;
+  brush: BrushName;
+}
+
+export interface PaintReply {
+  plan: Plan;
+  pixels: Uint8ClampedArray;
+}
+
+/** Asks the paint worker to replay a stored plan; it replies with the raster. */
+export interface ReplayRequest {
+  kind: "replay";
+  plan: Plan;
+  W: number;
+  H: number;
+}
+
+export interface ReplayReply {
+  pixels: Uint8ClampedArray;
+}
