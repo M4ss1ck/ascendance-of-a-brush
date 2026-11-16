@@ -24,9 +24,9 @@ const RENDER_ALL = "\nrenderAll();";
 function prototypeSource(): string {
   const withoutFonts = html.replace(FONT_LINKS, "");
   const at = withoutFonts.lastIndexOf(RENDER_ALL);
-  return at < 0
-    ? withoutFonts
-    : withoutFonts.slice(0, at) + withoutFonts.slice(at + RENDER_ALL.length);
+  // A stale harness must fail as such: an unstripped renderAll() would race the tests' paint.
+  if (at < 0) throw new Error("prototype harness is stale: trailing renderAll() not found");
+  return withoutFonts.slice(0, at) + withoutFonts.slice(at + RENDER_ALL.length);
 }
 
 /**

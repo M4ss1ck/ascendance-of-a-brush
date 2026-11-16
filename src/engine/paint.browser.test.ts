@@ -59,6 +59,30 @@ const gradient = (): Fixture => {
   return { W, H, pixels: px };
 };
 
+/**
+ * A larger scene so the planner runs closer to its working regime: long curves, many
+ * cells per layer and long shuffles. Soft vertical ramp, a disk, a square and thin lines.
+ */
+const shapes = (): Fixture => {
+  const W = 200,
+    H = 150;
+  const px = new Uint8ClampedArray(W * H * 4);
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++) {
+      let c: [number, number, number] = [200 - y * 0.6, 170 - y * 0.3, 120 + y * 0.5];
+      if ((x - 60) ** 2 + (y - 70) ** 2 < 35 ** 2) c = [190, 60, 40];
+      if (x >= 110 && x <= 170 && y >= 30 && y <= 100) c = [40, 80, 140];
+      if (y === 120 && x >= 20 && x <= 180) c = [15, 15, 20];
+      if (x - y === 40 && y >= 10 && y <= 140) c = [245, 240, 230];
+      const i = (y * W + x) * 4;
+      px[i] = c[0];
+      px[i + 1] = c[1];
+      px[i + 2] = c[2];
+      px[i + 3] = 255;
+    }
+  return { W, H, pixels: px };
+};
+
 /** Prototype defaults (brush-bench.html line 624), minus the working size. */
 const settings: PaintSettings = {
   seed: 7,
@@ -184,6 +208,15 @@ const parityCases = (): Case[] => [
     settings: { ...settings, ground: "blurred", palette: 4 },
     brush: "curve",
   },
+  { id: "shapes-dab", fixture: shapes(), settings, brush: "dab" },
+  { id: "shapes-curve", fixture: shapes(), settings, brush: "curve" },
+  // colorJitter 0 skips finishColor's three draws; "white" is the only other ground fill.
+  ...(["dab", "curve"] as const).map((brush): Case => ({
+    id: `square-${brush}-no-jitter-white`,
+    fixture: squareAndLine(),
+    settings: { ...settings, colorJitter: 0, ground: "white" },
+    brush,
+  })),
 ];
 
 // Runs the approved prototype's own `paint` on the same fixture and settings, so the
