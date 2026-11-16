@@ -15,8 +15,7 @@ const VARIANTS = [
     key: "D",
     name: "Scriptorium",
     mount: mountScriptorium,
-    fonts:
-      "family=IM+Fell+English:ital@0;1&family=IM+Fell+English+SC&family=Alegreya+Sans:wght@400;500",
+    fonts: "",
   },
   {
     key: "A",
@@ -44,9 +43,11 @@ export function mountPrototype(root: HTMLElement): void {
   const key = new URLSearchParams(location.search).get("variant") ?? "D";
   const v = VARIANTS.find((x) => x.key === key) ?? VARIANTS[0]!;
   const link = document.createElement("link");
-  link.rel = "stylesheet";
-  link.href = `https://fonts.googleapis.com/css2?${v.fonts}&display=swap`;
-  document.head.append(link);
+  if (v.fonts) {
+    link.rel = "stylesheet";
+    link.href = `https://fonts.googleapis.com/css2?${v.fonts}&display=swap`;
+    document.head.append(link);
+  }
   document.body.className = "";
   const session = new Session();
   v.mount(root, session);
