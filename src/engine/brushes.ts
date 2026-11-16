@@ -49,6 +49,9 @@ export interface CurveStroke {
 export type Stroke = DabStroke | CurveStroke;
 export type BrushName = Stroke["b"];
 
+/** The white ground tone: the same bytes as `#f6f4ef`. */
+const WHITE: RGB = [246, 244, 239];
+
 export interface GroundPlan {
   type: Ground;
   color: RGB;
@@ -333,7 +336,7 @@ export function drawGround(ctx: Ctx2D, g: GroundPlan, W: number, H: number): voi
   if (g.mask) {
     // A masked ground is one opaque RGBA buffer inside the mask, transparent outside (ADR-0009).
     const px = new Uint8ClampedArray(W * H * 4);
-    const c: RGB = g.type === "toned" ? g.color : [246, 244, 239];
+    const c: RGB = g.type === "toned" ? g.color : WHITE;
     const r = clamp(c[0] | 0, 0, 255),
       gr = clamp(c[1] | 0, 0, 255),
       b = clamp(c[2] | 0, 0, 255);
@@ -357,7 +360,7 @@ export function drawGround(ctx: Ctx2D, g: GroundPlan, W: number, H: number): voi
   if (g.type === "blurred")
     ctx.putImageData(new ImageData(new Uint8ClampedArray(g.data!), W, H), 0, 0);
   else {
-    ctx.fillStyle = g.type === "toned" ? rgb(g.color) : "#f6f4ef";
+    ctx.fillStyle = g.type === "toned" ? rgb(g.color) : rgb(WHITE);
     ctx.fillRect(0, 0, W, H);
   }
 }

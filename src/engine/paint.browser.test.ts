@@ -11,7 +11,7 @@ import type {
   ReplayReply,
   ReplayRequest,
 } from "./paint.ts";
-import { toMask, type Mask, type Rect, type Selection } from "./selection.ts";
+import { type Selection } from "./selection.ts";
 
 // Pins the ported layer loop (docs/reference/brush-bench.html lines 478-521) inside the
 // worker from ADR-0010: two runs of the same input must give the same raster, and replaying
@@ -200,6 +200,8 @@ interface Case {
   fixture: Fixture;
   settings: PaintSettings;
   brush: BrushName;
+  /** A masked case exercises the masked-ground path; absent means the whole image. */
+  selection?: Selection;
 }
 
 const cases = (): Case[] => [
@@ -226,6 +228,15 @@ const parityCases = (): Case[] => [
     settings: { ...settings, colorJitter: 0, ground: "white" },
     brush,
   })),
+  // ADR-0009 rule 5: an all-ones rect mask lays the ground through the masked path and
+  // must still reproduce the prototype hash for hash.
+  {
+    id: "square-curve-all-ones-rect",
+    fixture: squareAndLine(),
+    settings,
+    brush: "curve",
+    selection: { kind: "rect", x: 0, y: 0, w: 32, h: 32 },
+  },
 ];
 
 // Runs the approved prototype's own `paint` on the same fixture and settings, so the
@@ -233,7 +244,7 @@ const parityCases = (): Case[] => [
 // restatement of it. See docs/reference/brush-bench.html and AGENTS.md.
 describe("prototype parity", () => {
   it.each(parityCases())("$id matches the prototype raster and strokes", async (c) => {
-    const worker = await paintInWorker(c.fixture, c.settings, c.brush);
+    const worker = await paintInWorker(c.fixture, c.settings, c.brush, c.selection);
     const prototype = await prototypePaint(
       c.fixture.pixels,
       c.fixture.W,
@@ -279,28 +290,12 @@ describe("metric thresholds", () => {
   });
 });
 
-/** The mask's own bounds, scanned the way `toMask` tests pixel centres. */
-function maskBounds(mask: Mask, W: number, H: number): Rect {
-  let minX = W,
-    minY = H,
-    maxX = -1,
-    maxY = -1;
-  for (let y = 0; y < H; y++)
-    for (let x = 0; x < W; x++)
-      if (mask[y * W + x]) {
-        if (x < minX) minX = x;
-        if (x > maxX) maxX = x;
-        if (y < minY) minY = y;
-        if (y > maxY) maxY = y;
-      }
-  return { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
-}
-
 // ADR-0009: the reply carries the painted object only, cropped to everything painted. A
 // whole-image painting keeps the full canvas, so its raster is byte-identical to before.
 describe("selection", () => {
   // An ellipse over the square: smaller than the canvas, with room for strokes to bleed.
   const ellipse: Selection = { kind: "ellipse", cx: 15, cy: 15, rx: 7, ry: 6 };
+  // Its mask spans x 8..21 and y 9..20 on the 32px canvas.
   const brushes = ["dab", "curve"] as const;
 
   it.each(brushes)("%s crops a whole-image painting to the full canvas", async (brush) => {
@@ -311,23 +306,18 @@ describe("selection", () => {
     expect(reply.pixels.length).toBe(f.W * f.H * 4);
   });
 
-  it.each(brushes)("%s crops a masked painting to the mask plus bleed", async (brush) => {
+  // Pinned fixed-seed crops (ADR-0008), each strictly wider than the ellipse mask on some
+  // side, so a stroke bled past the outline.
+  it.each([
+    ["dab", { x: 5, y: 1, w: 27, h: 29 }],
+    ["curve", { x: 6, y: 0, w: 26, h: 31 }],
+  ] as const)("%s crops a masked painting to the mask plus bleed", async (brush, crop) => {
     const f = squareAndLine();
     const reply = await paintInWorker(f, settings, brush, ellipse);
-    const bounds = maskBounds(toMask(ellipse, f.W, f.H)!, f.W, f.H);
-    const { x, y, w, h } = reply.crop;
 
-    // The ground fills the mask, so its bounds are contained; strokes may only widen it.
-    expect(x).toBeLessThanOrEqual(bounds.x);
-    expect(y).toBeLessThanOrEqual(bounds.y);
-    expect(x + w).toBeGreaterThanOrEqual(bounds.x + bounds.w);
-    expect(y + h).toBeGreaterThanOrEqual(bounds.y + bounds.h);
-    // Clamped to the working canvas, and the raster matches the crop.
-    expect(x).toBeGreaterThanOrEqual(0);
-    expect(y).toBeGreaterThanOrEqual(0);
-    expect(x + w).toBeLessThanOrEqual(f.W);
-    expect(y + h).toBeLessThanOrEqual(f.H);
-    expect(reply.pixels.length).toBe(w * h * 4);
+    expect(reply.crop).toEqual(crop);
+    expect(crop.x < 8 || crop.y < 9 || crop.x + crop.w > 22 || crop.y + crop.h > 21).toBe(true);
+    expect(reply.pixels.length).toBe(crop.w * crop.h * 4);
   });
 
   it.each(brushes)("%s replays a masked plan to the same crop and pixels", async (brush) => {

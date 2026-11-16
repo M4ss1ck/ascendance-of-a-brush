@@ -48,20 +48,58 @@ const settings: PaintSettings = {
 const selection: Selection = { kind: "rect", x: 12, y: 12, w: 16, h: 16 };
 
 /** Plans and paints on a fresh context, returning the plan and its raster. */
-function run(mask: Mask | null, brush: BrushName): { plan: Plan; pixels: Uint8ClampedArray } {
-  const a = analyze(source, W, H, settings);
+function run(
+  mask: Mask | null,
+  brush: BrushName,
+  s: PaintSettings = settings,
+): { plan: Plan; pixels: Uint8ClampedArray } {
+  const a = analyze(source, W, H, s);
   const ctx = new OffscreenCanvas(W, H).getContext("2d", { willReadFrequently: true })!;
-  const plan = paint(ctx, a, settings, brush, mask);
+  const plan = paint(ctx, a, s, brush, mask);
   return { plan, pixels: ctx.getImageData(0, 0, W, H).data };
 }
+
+// Ceilings are the measured distance × 1.1, rounded up to one decimal (ADR-0008).
+// Measured over the mask pixels: dab 25.38912, curve 24.20802.
+const ceiling: Record<BrushName, number> = { dab: 27.9, curve: 26.7 };
 
 describe.each(["dab", "curve"] as const)("masked painting with %s", (brush) => {
   const mask = toMask(selection, W, H)!;
 
-  it("matches the unmasked raster when the mask is the whole image", () => {
-    const all = new Uint8Array(W * H).fill(1);
+  it.each(["white", "toned", "blurred"] as const)(
+    "matches the unmasked raster when the mask is the whole image (%s ground)",
+    (ground) => {
+      const s: PaintSettings = { ...settings, ground };
+      const all = new Uint8Array(W * H).fill(1);
 
-    expect(fnv1a(run(all, brush).pixels)).toBe(fnv1a(run(null, brush).pixels));
+      expect(fnv1a(run(all, brush, s).pixels)).toBe(fnv1a(run(null, brush, s).pixels));
+    },
+  );
+
+  it("plans strokes and bleeds past the mask", () => {
+    const { plan, pixels } = run(mask, brush);
+    let outside = 0;
+    for (let i = 0; i < W * H; i++) if (!mask[i] && pixels[i * 4 + 3]! > 0) outside++;
+
+    expect(plan.strokes.length).toBeGreaterThan(0);
+    expect(outside).toBeGreaterThan(0);
+  });
+
+  it("keeps the painted mask pixels close to the source", () => {
+    const { pixels } = run(mask, brush);
+    let sum = 0,
+      n = 0;
+    for (let i = 0; i < W * H; i++) {
+      if (!mask[i]) continue;
+      sum += Math.hypot(
+        source[i * 4]! - pixels[i * 4]!,
+        source[i * 4 + 1]! - pixels[i * 4 + 1]!,
+        source[i * 4 + 2]! - pixels[i * 4 + 2]!,
+      );
+      n++;
+    }
+
+    expect(sum / n).toBeLessThanOrEqual(ceiling[brush]);
   });
 
   it.runIf(brush === "dab")("starts every dab inside the mask", () => {
