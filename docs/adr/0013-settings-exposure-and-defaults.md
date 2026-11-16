@@ -6,6 +6,8 @@ Defaults are the values the user approved in the prototype:
 
 | setting       | default | prototype range                     |
 | ------------- | ------- | ----------------------------------- |
+| brush         | Curved  | Dab, Curved                         |
+| seed          | 7       | any integer                         |
 | working size  | 640     | 480 / 640 / 960 / 1280              |
 | `maxR`        | 24      | 6 to 48, step 2                     |
 | layers        | 4       | 1 to 5                              |

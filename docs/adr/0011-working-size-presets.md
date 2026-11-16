@@ -4,8 +4,8 @@ The source is resampled to a working size chosen from fixed presets (long side 4
 
 ## Considered Options
 
-- **Plan at 640 and re-render the stroke list scaled up.** Rejected because the scaled output would be a different raster with its own hashes, and there would be two notions of "the painting".
+- **Plan at 640 and re-render the stroke list scaled up.** Rejected because the scaled result would be a different raster with its own hashes, and there would be two notions of "the painting".
 
 ## Consequences
 
-The same seed gives a different painting at each preset, because placement is per-pixel. Brush radii are absolute pixels (`maxR` = 24 at every preset), as in the prototype, so a larger preset gives relatively finer brushwork. Adding a preset above 1280 needs a performance check first.
+The same seed gives a different painting at each preset, because placement is per-pixel. Brush radii are absolute pixels (`maxR` = 24 at every preset), as in the prototype, so a larger preset gives relatively finer brushwork.

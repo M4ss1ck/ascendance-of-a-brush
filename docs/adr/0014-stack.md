@@ -5,7 +5,7 @@
 - **Tooling:**
   - pnpm on Node 26 (the current LTS).
   - oxlint for lint, which also bans `Math.random`.
-  - oxfmt for formatting, including Tailwind class sorting.
+  - oxfmt for formatting, including Tailwind class sorting in HTML and in `tw` tagged templates.
   - Husky and lint-staged in pre-commit.
   - GitHub Actions CI.
 - **Tests:** Vitest with two projects. `unit` runs in Node for pure math. `browser` runs in real Chromium through Playwright, for anything that touches Canvas 2D pixels, OffscreenCanvas or Workers. Pinning one engine matches the same-browser determinism scope (ADR-0003).

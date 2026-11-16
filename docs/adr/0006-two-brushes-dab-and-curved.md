@@ -13,6 +13,6 @@ The app offers exactly two brushes. The user approved both as final, so their be
   - the reference color at the half step or full step, at the center or either flank (±0.45 × width), further than `tol` from the start color;
   - Hertzmann's rule: the canvas is already closer to the reference than the start color.
 - **Color.** The mean reference color along the path.
-- **Look.** Width 1.4R, drawn as a base stroke at 0.6 × opacity. On top go up to 12 bristle lines with seeded shade and opacity jitter, and each bristle has a 35% chance of dropping its last point. A single-point path draws as a circle of radius 0.45 × width.
+- **Look.** Width 1.4R, drawn as a base stroke at 0.6 × opacity. On top go `n = clamp(round(width / 2.2), 1, 12)` bristle lines (none when `n < 2`) with seeded shade and opacity jitter. For paths longer than 2 points, each bristle draws once and drops its last point with probability 0.35; shorter paths make no such draw. A single-point path draws as a circle of radius 0.45 × width.
 
 **Shared color finishing.** Optional k-means++ palette snap, then a seeded HSV jitter scaled by `colorJitter`.

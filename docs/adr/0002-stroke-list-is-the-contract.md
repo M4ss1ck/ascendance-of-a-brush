@@ -1,6 +1,6 @@
 # The stroke list is the contract between planning and rendering
 
-The pipeline is source → analysis (blur pyramid, structure tensor, optional palette) → planner → stroke list → renderer. A stroke is plain, serializable data (position or path, radius or width, color, opacity, its own seed); the renderer turns a stroke list into pixels and knows nothing about how it was planned. The stroke list is what makes replay, timelapse, SVG export and hash tests possible, so it is the one interface every module agrees on.
+The pipeline is source → analysis (blur pyramid, structure tensor, optional palette) → planner → stroke list → renderer. A stroke is plain, serializable data (position or path, radius or width, color, opacity, and a seed for strokes whose drawing is random); the renderer turns a stroke list into pixels and knows nothing about how it was planned. The stroke list is what makes replay, timelapse, SVG export and hash tests possible, so it is the one interface every module agrees on.
 
 ## Consequences
 

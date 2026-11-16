@@ -6,11 +6,11 @@ Status: bootstrapping. The brush engine is being ported from the approved protot
 
 ## Develop
 
-Requires Node 26 (current LTS) and pnpm 12.
+Requires Node 26 (current LTS) and pnpm 12. Node 25+ no longer bundles corepack, so install pnpm with `npm i -g pnpm@12`.
 
 ```sh
 pnpm install
-pnpm exec playwright install chromium   # once, for the browser test lane
+pnpm exec playwright install --with-deps chromium   # once, for the browser test lane (system deps need sudo)
 pnpm dev                                # http://localhost:5173
 pnpm check                              # typecheck, lint, format, all tests, build (what CI runs)
 ```

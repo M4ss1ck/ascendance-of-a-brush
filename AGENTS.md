@@ -21,7 +21,12 @@ Two Vitest projects, chosen by file name:
 
 Engine changes ship with fixed-seed hash tests and metric threshold tests (ADR-0008). Fixtures must be redistributable (ADR-0015).
 
-`pnpm check` runs everything CI runs. If Playwright's Chromium is missing locally, install it with `pnpm exec playwright install chromium`.
+`pnpm check` runs everything CI runs. If Playwright's Chromium is missing locally, install it with `pnpm exec playwright install --with-deps chromium`.
+
+## Code conventions
+
+- Tailwind classes built in TypeScript go through the `tw` tag (`src/ui/tw.ts`); oxfmt sorts classes only there and in HTML.
+- Every `*.worker.ts` declares `declare const self: DedicatedWorkerGlobalScope;` because the shared tsconfig types `self` as `Window`.
 
 ## Planning artifacts
 

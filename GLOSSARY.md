@@ -32,7 +32,7 @@ One coarse-to-fine pass of the planner, with a single brush radius and its own r
 _Avoid_: pass, level
 
 **Brush radius**:
-The size R of the brush in a layer. It halves from one layer to the next.
+The size R of the brush in a layer. It halves from one layer to the next, never below 1.5 px.
 
 **Reference**:
 The source blurred to match a layer's brush radius. It is what that layer tries to paint.
@@ -57,7 +57,7 @@ The ground plus the ordered stroke list for one painting.
 ## Painting
 
 **Stroke**:
-One mark of paint, recorded as plain data (shape, color, opacity and its own seed) so it can be redrawn exactly.
+A single application of paint, recorded as plain data (shape, color, opacity and, for curved strokes, its own seed) so it can be redrawn exactly.
 _Avoid_: mark, dab (except for the Dab brush)
 
 **Stroke list**:
