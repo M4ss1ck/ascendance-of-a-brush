@@ -1,7 +1,7 @@
 /**
  * Quality metrics ported verbatim from docs/reference/brush-bench.html.
  *
- * `metricMasks` covers the metric-only masks of `analyze` (lines 289-306): the difference
+ * `metricMasks` covers the metric-only masks of `analyze` (lines 295-306): the difference
  * of Gaussians that flags thin lines (`lineMask`) and the top-15%-by-gradient-magnitude
  * `edge` mask. `analysis.ts` deliberately leaves these out.
  *
@@ -24,7 +24,7 @@ const lum = (img: Float32Array, i: number) =>
   0.299 * img[i * 3]! + 0.587 * img[i * 3 + 1]! + 0.114 * img[i * 3 + 2]!;
 
 /**
- * Builds the metric-only masks, ported from `analyze` (lines 289-306).
+ * Builds the metric-only masks, ported from `analyze` (lines 295-306).
  *
  * `lineMask` comes from a difference of Gaussians on the sharp luminance: thin lines and
  * small spots respond, broad gradients don't. `edge` marks the top 15% of pixels by

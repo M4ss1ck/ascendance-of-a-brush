@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { analyze } from "./analysis.ts";
+import { fnv1a } from "../testing/fnv1a.ts";
 import { boxBlur } from "./blur.ts";
 import { metricMasks, score } from "./metrics.ts";
 
@@ -90,7 +91,23 @@ describe("score", () => {
       blurred[i * 4 + 3] = 255;
     }
     const s = score(a, m, blurred);
-    expect(s.edge).toBeGreaterThan(5);
-    expect(s.line).toBeGreaterThan(5);
+    const self = score(a, m, px);
+    expect(s.edge).toBeGreaterThan(self.edge);
+    expect(s.line).toBeGreaterThan(self.line);
+  });
+
+  // Captured by running the prototype's mask code and `score` (docs/reference/
+  // brush-bench.html lines 289-306 and 453-469) on this fixture, so they pin the port
+  // against the approved implementation rather than against itself.
+  it("matches the prototype on the fixture", () => {
+    const m = metricMasks(a);
+    expect(fnv1a(m.edge)).toBe("1c629aad");
+    expect(fnv1a(m.lineMask)).toBe("839c3263");
+    expect(score(a, m, px)).toEqual({ all: 29.523501832620717, edge: 0, line: 0 });
+    expect(score(a, m, flatGrey)).toEqual({
+      all: 152.7019994143205,
+      edge: 166.806952606557,
+      line: 174.43160988586874,
+    });
   });
 });
