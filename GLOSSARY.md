@@ -88,7 +88,11 @@ _Avoid_: preview, frame, intermediate
 Redrawing a painting from its stored stroke list alone.
 
 **Timelapse**:
-A video of a replay, one batch of strokes per frame.
+A video of a replay, one batch of strokes per frame. It always runs the same length, whatever the stroke count, and holds on the finished painting at the end.
+
+**Export**:
+A file the user saves from the current painting: a PNG, an SVG or a timelapse.
+_Avoid_: download, save, output
 
 ## Quality
 
