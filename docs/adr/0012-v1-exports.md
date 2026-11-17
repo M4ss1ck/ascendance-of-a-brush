@@ -8,4 +8,4 @@ A stroke-list JSON export was offered and not chosen for v1. The stroke list sta
 
 ## Consequences
 
-The timelapse encoding path (MediaRecorder on a captured canvas vs WebCodecs `VideoEncoder` plus a WebM muxer in the worker) is still open and gets decided in its own issue. The worker-side raster (ADR-0010) favors WebCodecs.
+The timelapse encoding path is settled in ADR-0019: WebCodecs `VideoEncoder` (VP9) muxed by Mediabunny, in a dedicated worker.
