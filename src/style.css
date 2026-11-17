@@ -118,7 +118,7 @@
     background: linear-gradient(#0000, #6b563655, #0000);
   }
 
-  /* A brush pick: the engine's own swatch, and a ribbon on the chosen one. */
+  /* A brush pick: the engine's own swatch, and a gold ribbon wrapped over the chosen one. */
   .pick {
     position: relative;
     display: grid;
@@ -148,15 +148,23 @@
     transform: translateY(-2px);
   }
 
+  /* A book's ribbon marker: it comes over the swatch's top edge (the darker band is the
+     fold over the ring) and hangs down onto the picture, ending in a swallowtail. The
+     lifted canvas sits at 4px padding - 2px lift = 2px, so top: -2px starts the fold
+     on the 3px ring. */
   .pick[aria-pressed="true"]::after {
     content: "";
     position: absolute;
-    top: -18px;
-    right: 10px;
-    width: 10px;
-    height: 26px;
-    background: var(--color-wall);
-    clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 75%, 0 100%);
+    top: -2px;
+    right: 16px;
+    width: 12px;
+    height: 36px;
+    background:
+      linear-gradient(90deg, #0000002e, #0000 30%, #ffffff30 50%, #0000 70%, #0000002e),
+      linear-gradient(#7a5a20 0 4px, var(--color-gold-light) 4px, var(--color-gold) 60%);
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 78%, 0 100%);
+    filter: drop-shadow(0 1px 0 #00000055);
+    pointer-events: none;
   }
 
   .pick[aria-pressed="true"] span {
@@ -231,6 +239,40 @@
 
   .btn:hover {
     border-bottom-color: var(--color-wall);
+  }
+
+  /* With nothing on the wall yet, "New image" beckons: a gold ring keeps swelling out
+     from the button and fading, like a ripple, until the first image loads. The word
+     itself never moves. */
+  .btn.beckon {
+    position: relative;
+    border-bottom-color: var(--color-gold);
+  }
+
+  .btn.beckon::before,
+  .btn.beckon::after {
+    content: "";
+    position: absolute;
+    inset: -3px -9px;
+    border: 1px solid var(--color-gold);
+    border-radius: 4px;
+    pointer-events: none;
+    animation: beckon 2.4s cubic-bezier(0.2, 0.6, 0.3, 1) infinite;
+  }
+
+  .btn.beckon::after {
+    animation-delay: 1.2s;
+  }
+
+  @keyframes beckon {
+    from {
+      opacity: 0.9;
+      transform: scale(1);
+    }
+    to {
+      opacity: 0;
+      transform: scale(1.18, 1.6);
+    }
   }
 
   /* The advanced drawer: parchment, collapsed until opened. */
@@ -561,6 +603,15 @@
     .page-now {
       box-shadow: 0 0 0 1px var(--color-gold);
       animation: none;
+    }
+
+    .btn.beckon::before {
+      opacity: 1;
+      animation: none;
+    }
+
+    .btn.beckon::after {
+      display: none;
     }
   }
 
