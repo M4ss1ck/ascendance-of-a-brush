@@ -164,7 +164,7 @@ export function mountApp(root: HTMLElement): void {
 
   const newImage = document.createElement("button");
   newImage.type = "button";
-  newImage.className = "btn";
+  newImage.className = "btn beckon";
   newImage.textContent = "New image";
   newImage.addEventListener("click", () => fileInput.click());
 
@@ -381,6 +381,7 @@ export function mountApp(root: HTMLElement): void {
     sourceLine.textContent = `${file.name} · ${bitmap.width} × ${bitmap.height}`;
     sourceLine.hidden = false;
     frame.hidden = false;
+    newImage.classList.remove("beckon");
     wipe.reset();
     setWorkingSize(settings.size);
     requestPaint();
