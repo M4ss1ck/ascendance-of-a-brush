@@ -12,6 +12,7 @@ import { buildAdvanced } from "./advanced.ts";
 import { createPages } from "./pages.ts";
 import { createRepainter } from "./repaint.ts";
 import { anotherSeed, parseSettings, writeSettings, type Settings } from "./settings.ts";
+import { startShowcase } from "./showcase.ts";
 import { drawSwatch } from "./swatch.ts";
 import { tw } from "./tw.ts";
 import { createWipe } from "./wipe.ts";
@@ -48,6 +49,7 @@ export function mountApp(root: HTMLElement): void {
   /** Every layer of the current paint, for the layer strip and its reveal. */
   let layers: LayerProgress[] = [];
   let drawerOpen = false;
+  let showcase: { stop(): void } | null = null;
 
   const painting = document.createElement("canvas");
   painting.className = tw`block`;
@@ -62,7 +64,6 @@ export function mountApp(root: HTMLElement): void {
 
   const frame = document.createElement("figure");
   frame.className = "frame";
-  frame.hidden = true;
   frame.append(canvasBox);
   for (const corner of ["orn-tl", "orn-tr", "orn-bl", "orn-br"]) {
     const ornament = document.createElement("span");
@@ -206,6 +207,17 @@ export function mountApp(root: HTMLElement): void {
   app.className = tw`grid h-dvh grid-cols-[minmax(0,1fr)] grid-rows-[minmax(0,1fr)_auto_auto] overflow-hidden`;
   app.append(wall, ledge, drawer);
   root.replaceChildren(app);
+
+  // The empty wall shows the demo book until an image is loaded (ADR-0018).
+  frame.classList.add("demo");
+  showcase = startShowcase(painting, (brush) => {
+    for (const [name, button] of brushButtons) button.classList.toggle("glint", name === brush);
+  });
+  fit();
+
+  frame.addEventListener("click", () => {
+    if (!source) fileInput.click();
+  });
 
   /** Marks the status as a normal update or as the inline error alert. */
   function setStatus(text: string): void {
@@ -378,9 +390,11 @@ export function mountApp(root: HTMLElement): void {
     }
     source?.close();
     source = bitmap;
+    showcase?.stop();
+    showcase = null;
+    frame.classList.remove("demo");
     sourceLine.textContent = `${file.name} · ${bitmap.width} × ${bitmap.height}`;
     sourceLine.hidden = false;
-    frame.hidden = false;
     newImage.classList.remove("beckon");
     wipe.reset();
     setWorkingSize(settings.size);
