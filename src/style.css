@@ -58,6 +58,11 @@
     display: block;
   }
 
+  /* The empty-state demo opens the file picker when the frame is clicked. */
+  .frame.demo {
+    cursor: pointer;
+  }
+
   .orn {
     position: absolute;
     width: 14px;
@@ -137,7 +142,14 @@
     box-shadow:
       0 0 0 1px #6b563655,
       0 3px 6px #0003;
-    transition: transform 0.15s;
+    transition:
+      transform 0.15s,
+      filter 0.4s;
+  }
+
+  /* The demo's current brush glints. A filter, so it also shows on the pressed pick. */
+  .pick.glint canvas {
+    filter: drop-shadow(0 0 7px #e8cf88);
   }
 
   .pick[aria-pressed="true"] canvas {
